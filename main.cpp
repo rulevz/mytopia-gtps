@@ -15,6 +15,7 @@
 #include "include/tools/time.hpp" // @note ticks()
 #include <csignal>
 #include <chrono>
+#include <cstdlib>
 
 bool g_verbose = false;
 
@@ -40,9 +41,11 @@ int main(int argc, char **argv)
     enet_initialize();
     {
         gServer_data.init(); // @note ./server_data.php
+        u_short enet_port = gServer_data.port; // @note capture/dev override: bind a different UDP port while server_data.php keeps advertising the real one (proxy) - GUROTOPIA_ENET_PORT
+        if (const char *port_env = std::getenv("GUROTOPIA_ENET_PORT")) enet_port = static_cast<u_short>(std::stoi(port_env));
         ENetAddress address{
             .type = ENET_ADDRESS_TYPE_IPV4, 
-            .port = gServer_data.port
+            .port = enet_port
         };
 
         host = enet_host_create (ENET_ADDRESS_TYPE_IPV4, &address, 50ull/* max peer count */, 2ull, 0u, 0u);

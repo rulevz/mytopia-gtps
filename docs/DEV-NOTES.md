@@ -63,6 +63,22 @@ Requires `items.dat`, `server_data.php`, `mysql_login.txt` in the working direct
   present; logon_fail instead of undefined behavior when unresolved
 - `login`: bounds-checked pipe parsing
 - `enet`: diagnostics logging (connect/disconnect IPs, text/tank/varlist)
+- `enet`: `GUROTOPIA_ENET_PORT` env override for the ENet bind port - the advertised
+  port in `server_data.php` stays unchanged, so a capture proxy can own the public
+  port (see "Packet capture" below)
+
+## Packet capture (`tools/gtproxy`)
+
+Our own ENet relay captures what clients send for features the server does not
+implement yet (trade, redeem codes, clash, gacha, ...). It decodes text / tank /
+variant-RPC messages to the console + `tools/gtproxy/captures/*.jsonl` and relays
+byte-for-byte (verified: identical packets direct vs proxied).
+
+Capture mode: server binds an alternate ENet port
+(`GUROTOPIA_ENET_PORT=17092 ~/opt/gtps-restart.sh`) while `server_data.php` keeps
+advertising 17091 = proxy (`--listen 17091 --backend 127.0.0.1:17092`); HTTPS stays
+direct on 443. Full runbook + ENet interop notes (new-packet mode kid):
+`tools/gtproxy/README.md`.
 
 ## Security
 - NEVER commit: `resources/ctx/server.crt|key` (real TLS material), `items.dat`

@@ -2,8 +2,8 @@
 // Usage: GROWID=Twice UID=1 [WORLD=..] [TX=44] [TY=37] node sim_punch.js
 const { init, NodeENetClient, Packet, PacketKind } = require("growtopia.wasm");
 
-const HOST = "127.0.0.1";
-const PORT = 17091;
+const HOST = process.env.HOST || "127.0.0.1";
+const PORT = parseInt(process.env.PORT || "17091", 10);
 const UID = parseInt(process.env.UID || "1", 10);
 const WORLD = process.env.WORLD || "TESTPUNCH";
 const TX = parseInt(process.env.TX || "44", 10);

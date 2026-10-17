@@ -41,3 +41,6 @@ Notes:
   (`growId=`, `password=` must be present in the base64).
 - `sim_modern_login.js` needs an existing account with that uid (it is resolved via
   `SELECT growid FROM peer WHERE uid = ?`).
+- All ENet simulators honor `HOST`/`PORT` env overrides (defaults: 127.0.0.1:17091) -
+  e.g. `PORT=17191 node sim_command.js` through the capture proxy (`tools/gtproxy`).
+  Beware of stale `HOST`/`PORT` exports in your shell silently overriding defaults.

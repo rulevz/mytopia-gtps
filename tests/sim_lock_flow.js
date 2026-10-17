@@ -7,8 +7,8 @@
 // Usage: GROWID=Twice UID=1 STEP=1 node sim_lock_flow.js
 const { init, NodeENetClient, Packet, PacketKind } = require("growtopia.wasm");
 
-const HOST = "127.0.0.1";
-const PORT = 17091;
+const HOST = process.env.HOST || "127.0.0.1";
+const PORT = parseInt(process.env.PORT || "17091", 10);
 const GROWID = process.env.GROWID || "Twice";
 const PASSWORD = process.env.PASSWORD || "kamuko8799";
 const UID = parseInt(process.env.UID || "1", 10);

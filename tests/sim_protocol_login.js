@@ -3,8 +3,8 @@
 // Usage: npm i growtopia.wasm && node sim_protocol_login.js
 const { init, NodeENetClient, Packet, PacketKind } = require("growtopia.wasm");
 
-const HOST = "127.0.0.1";
-const PORT = 17091;
+const HOST = process.env.HOST || "127.0.0.1";
+const PORT = parseInt(process.env.PORT || "17091", 10);
 
 // ltoken = base64 of "_token=<...>&growId=<name>&password=<pw>&reg=<0|1>"
 // Override the account with env vars: GROWID=.. PASSWORD=.. node sim_protocol_login.js

@@ -4,8 +4,8 @@
 // Prints every packet the server sends back (ascii-ish).
 const { init, NodeENetClient, Packet, PacketKind } = require("growtopia.wasm");
 
-const HOST = "127.0.0.1";
-const PORT = 17091;
+const HOST = process.env.HOST || "127.0.0.1";
+const PORT = parseInt(process.env.PORT || "17091", 10);
 const GROWID = process.env.GROWID || "Twice";
 const PASSWORD = process.env.PASSWORD || "kamu8799";
 const UID = parseInt(process.env.UID || "1", 10);

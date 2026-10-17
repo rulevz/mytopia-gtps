@@ -19,3 +19,7 @@ LOCAL-RUN.md
 resources/ctx/server.crt
 resources/ctx/server.key
 resources/ctx.bak/
+
+# gtproxy (packet capture tool) local artifacts
+tools/gtproxy/gtproxy
+tools/gtproxy/captures/

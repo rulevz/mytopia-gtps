@@ -47,8 +47,11 @@ client before the items parser is upgraded (see P2).
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate
       fix; verified by exact-EOF parse of real v5.59 (16434 items). Server boots both formats
 - [x] Version matrix + validation tool: docs/ITEMSDAT-FORMATS.md + tests/itemsdat_check.py
-- [ ] Packet captures for unimplemented features (trade, redeem codes, clash, gacha...)
-      via the proxy tooling (GTProxy / packet reader)
+- [~] Packet captures for unimplemented features (trade, redeem codes, clash, gacha...)
+      via `tools/gtproxy/` (our own ENet relay - replaces the GTProxy/packet-reader
+      idea): built + verified end-to-end (login/commands/punch relayed byte-identically;
+      jsonl captures + text/tank/varlist decode). Next: real-phone capture session, and
+      fudge dialogs (e.g. wrench->Trade) so the client can open those UIs at all
 - [x] Protocol cheat-sheet: `docs/PROTOCOL.md` (HTTPS discovery, ENet framing, tank
       layout + type tables, variant RPC wire format, full login flow, pool inventories,
       extension recipes) - speeds up the packet-capture / trade work below

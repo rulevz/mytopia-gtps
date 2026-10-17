@@ -4,8 +4,8 @@
 // Usage: npm i growtopia.wasm && node sim_modern_login.js
 const { init, NodeENetClient, Packet, PacketKind } = require("growtopia.wasm");
 
-const HOST = "127.0.0.1";
-const PORT = 17091;
+const HOST = process.env.HOST || "127.0.0.1";
+const PORT = parseInt(process.env.PORT || "17091", 10);
 
 (async () => {
   await init();
