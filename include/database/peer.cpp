@@ -133,6 +133,9 @@ void peer::mysql_select_all()
     this->growid     = this->mysql_select<std::string>("growid");
     this->password   = this->mysql_select<std::string>("password");
     this->created_at = this->mysql_select<std::time_t>("created_at", "UNIX_TIMESTAMP");
+    this->role       = static_cast<u_char>(this->mysql_select<signed>("role"));
+    this->banned     = this->mysql_select<signed>("banned") != 0;
+    this->muted      = this->mysql_select<signed>("muted") != 0;
 
     auto blob = this->mysql_select<std::vector<u_char>>("inventory");
     const u_char *u8 = blob.data();

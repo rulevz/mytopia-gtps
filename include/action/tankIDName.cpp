@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include "automate/holiday.hpp"
+#include "onVariant/ConsoleMessage.hpp"
 
 #include "tankIDName.hpp"
 
@@ -48,6 +49,13 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
     }
 
     pPeer->load(pPeer->growid, pPeer->password); // @note the ACTUAL loading. the one in protocol.cpp must be removed for performance...
+    if (pPeer->banned)
+    {
+        printf("[login] banned account '%s' -> rejected (session)\n", pPeer->growid.c_str()); // @note auth event, always logged
+        on::ConsoleMessage(event.peer, "`4This account is banned from this server.``");
+        enet_peer_disconnect_later(event.peer, 0);
+        return;
+    }
 
     send_varlist(event.peer, { "OnOverrideGDPRFromServer", 18, 1, 0, 1 });
 

@@ -21,6 +21,10 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
 - `node multi_client_smoke.js`
   Concurrency smoke: two clients log in simultaneously (modern payload); both must
   receive server varlists and the server must stay alive (crash regression guard).
+- `node sim_command.js`
+  Full login then sends one command/chat message
+  (`GROWID=.. UID=.. CMD="/help" node sim_command.js`), prints every server reply —
+  used to verify admin commands, role gates and moderation flows.
 
 Notes:
 - `sim_protocol_login.js` registers/loads the account inside the ltoken payload

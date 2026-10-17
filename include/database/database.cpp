@@ -13,6 +13,9 @@ void create_table_if_not_exist()
             "growid VARCHAR(18) UNIQUE,"
             "password VARCHAR(128),"
             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+            "role TINYINT DEFAULT 0,"
+            "banned TINYINT DEFAULT 0,"
+            "muted TINYINT DEFAULT 0,"
             "inventory BLOB"
         ")";
     std::string query_world = 
@@ -28,6 +31,13 @@ void create_table_if_not_exist()
     }
     // @note migration: widen password column for "sha256:<hex>" hashes
     if (mysql_query(db, "ALTER TABLE peer MODIFY password VARCHAR(128)"))
+    {
+        std::fprintf(stderr, "%s\n", mysql_error(db));
+    }
+    // @note migrations: role + moderation columns (MariaDB supports IF NOT EXISTS here)
+    if (mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS role TINYINT DEFAULT 0") ||
+        mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS banned TINYINT DEFAULT 0") ||
+        mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS muted TINYINT DEFAULT 0"))
     {
         std::fprintf(stderr, "%s\n", mysql_error(db));
     }

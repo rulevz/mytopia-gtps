@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include "https/server_data.hpp"
 #include "proton/Variant.hpp"
+#include "onVariant/ConsoleMessage.hpp"
 
 #include "protocol.hpp"
 
@@ -42,6 +43,13 @@ void action::protocol(ENetEvent& event, const std::string& header)
         return;
     }
     pPeer->load(pPeer->growid, pPeer->password); // @todo i want remove this tbh. since we only are fetching user_id which seems a waste.
+    if (pPeer->banned)
+    {
+        printf("[login] banned account '%s' -> rejected\n", pPeer->growid.c_str()); // @note auth event, always logged
+        on::ConsoleMessage(event.peer, "`4This account is banned from this server.``");
+        send_action(*event.peer, "logon_fail", "");
+        return;
+    }
     if (g_verbose) printf("[login] protocol OK: growid=%s uid=%d -> OnSendToServer\n", pPeer->growid.c_str(), pPeer->user_id);
 
     send_varlist(event.peer, {

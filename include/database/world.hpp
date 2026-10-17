@@ -133,6 +133,8 @@ public:
     world(const std::string &name = "");/*DEFAULT*/
     ~world();
 
+    void save(); // @note persists owner/blocks/objects to MariaDB (~world + periodic autosave call this)
+
     bool exists(const std::string& name);
 
     template<typename T>

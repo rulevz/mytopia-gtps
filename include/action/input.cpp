@@ -45,6 +45,11 @@ void action::input(ENetEvent& event, const std::string& header)
     }
     else 
     {
+        if (pPeer->muted)
+        {
+            on::ConsoleMessage(event.peer, "`4You are muted.``");
+            return;
+        }
         if (pPeer->state & S_DUCT_TAPE)
         {
             static constexpr std::array<std::string_view, 4ull> muffled{ "mfmm", "mmfmfm", "mffm", "mfmfmm" };

@@ -92,6 +92,8 @@ public:
     std::string growid{""}, password{""};
     std::time_t created_at{}; // @note when inserted in SQL (account age)
     u_char role{};
+    bool banned{};
+    bool muted{};
     std::array<float, 10ull> clothing{}; // @note peer's clothing {id, clothing::}
     u_char punch_effect{}; // @note last equipped clothing that has a effect. supporting 0-255 effects.
 

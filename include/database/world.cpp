@@ -314,7 +314,7 @@ world::world(const std::string &name) : name(name)/*DEFAULT*/
         generate_world(*this);
     }
 }
-world::~world()
+void world::save()
 {
     this->mysql_update("owner", this->owner);
     {
@@ -368,6 +368,11 @@ world::~world()
         }
         this->mysql_update("objects", blob.data());
     }
+}
+
+world::~world()
+{
+    this->save();
 }
 
 std::vector<world> worlds;

@@ -57,11 +57,20 @@ int main(int argc, char **argv)
 
     ENetEvent event{};
     auto db_ping_at = std::chrono::steady_clock::now();
+    auto world_save_at = std::chrono::steady_clock::now() + std::chrono::minutes(5);
     while (!gSignal)
     {
         while (enet_host_service(host, &event, 1000/*ms*/) > 0)
             if (const auto i = eventType_pool.find(event.type); i != eventType_pool.end())
                 i->second(event);
+
+        // @note every ~5min: autosave all in-memory worlds (crash safety)
+        if (std::chrono::steady_clock::now() > world_save_at)
+        {
+            for (::world &w : worlds) w.save();
+            if (g_verbose) printf("[world] autosaved %zu world(s)\n", worlds.size());
+            world_save_at = std::chrono::steady_clock::now() + std::chrono::minutes(5);
+        }
 
         // @note every ~30s: watchdog the MariaDB connection and reconnect when it died
         if (std::chrono::steady_clock::now() > db_ping_at)

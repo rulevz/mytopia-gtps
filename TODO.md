@@ -28,9 +28,10 @@ client before the items parser is upgraded (see P2).
 
 ## P1 - Gameplay content
 - [ ] Work through `@todo` markers by priority: tile_change.cpp (19), world.cpp (13), wrench.cpp (5), SetClothing (4)
-- [ ] Worlds: full save/load (blocks + objects), periodic autosave, complete world-lock
-      system (ownership, access lists, wrench UI flows)
-- [ ] Commands: expand set (/give, /setrole, /ban, /unban, /mute, /kick, ...) with role gates
+- [~] Worlds: save/load + 5-minute autosave (world.save()); full world-lock flows
+      (access lists, wrench UI) still pending
+- [x] Commands: /give, /setrole, /kick, /ban, /unban, /mute with role gates (MODERATOR+/DEVELOPER+);
+      role/banned/muted persisted in DB (startup migrations). Verified via tests/sim_command.js
 - [ ] Chat & moderation basics (word filter, mute, console log)
 - [ ] Store/economy: store.txt flow, gems & bux, IAP simulation path
 - [ ] Verify item rendering with the served items.dat (0x1a) on 5.57
