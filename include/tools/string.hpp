@@ -45,6 +45,9 @@ extern bool alnum(const std::string& str);
 
 extern std::string base64_decode(const std::string& encoded);
 
+/* @return lowercase hex sha256 digest of data */
+extern std::string sha256_hex(const std::string &data);
+
 /* 
     @return '1' (true) || '0' (false) 
 */

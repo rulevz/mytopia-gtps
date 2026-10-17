@@ -12,7 +12,7 @@ void receive(ENetEvent& event)
         {
             std::string header{data.begin() + 4, data.end() - 1};
             unsigned char *ip = reinterpret_cast<unsigned char*>(&event.peer->address.host); // @note debug logging
-            printf("[enet] text from %u.%u.%u.%u:%u: %.1500s\n", ip[0], ip[1], ip[2], ip[3], event.peer->address.port, header.c_str());
+            if (g_verbose) printf("[enet] text from %u.%u.%u.%u:%u: %.1500s\n", ip[0], ip[1], ip[2], ip[3], event.peer->address.port, header.c_str());
             
             std::ranges::replace(header, '\n', '|');
             const std::vector<std::string> pipes = readch(header, '|');
@@ -31,7 +31,7 @@ void receive(ENetEvent& event)
 
             if (const auto i = action_pool.find(action); i != action_pool.end())
                 i->second(event, header);
-            else printf("[enet] no handler for action: %.80s\n", action.c_str()); // @note debug logging
+            else if (g_verbose) printf("[enet] no handler for action: %.80s\n", action.c_str()); // @note debug logging
             break;
         }
         case 4: 
@@ -40,7 +40,7 @@ void receive(ENetEvent& event)
 
             ::gamePacket gamePacket = make_gamePacket(event.packet->data);
             gamePacket.size = event.packet->dataLength - sizeof(::gamePacket); // @todo did i do this right? or check for flag ::EXTENDED
-            printf("[enet] tank: type=0x%02x netid=%d size=%u\n", gamePacket.type, gamePacket.netid, gamePacket.size); // @note debug logging
+            if (g_verbose) printf("[enet] tank: type=0x%02x netid=%d size=%u\n", gamePacket.type, gamePacket.netid, gamePacket.size); // @note debug logging
 
             if (const auto i = gamePacket_pool.find(gamePacket.type); i != gamePacket_pool.end())
                 i->second(event, std::move(gamePacket));

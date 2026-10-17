@@ -19,5 +19,6 @@
     #include "database/world.hpp"
 
     #include "tools/string.hpp"
+    #include "tools/verbose.hpp"
 
 #endif

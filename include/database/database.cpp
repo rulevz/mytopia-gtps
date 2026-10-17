@@ -11,7 +11,7 @@ void create_table_if_not_exist()
         "CREATE TABLE IF NOT EXISTS peer ("
             "uid INT AUTO_INCREMENT PRIMARY KEY,"
             "growid VARCHAR(18) UNIQUE,"
-            "password VARCHAR(18),"
+            "password VARCHAR(128),"
             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
             "inventory BLOB"
         ")";
@@ -23,6 +23,11 @@ void create_table_if_not_exist()
             "objects BLOB"
         ")";
     if (mysql_query(db, query_peer.c_str()) || mysql_query(db, query_world.c_str()))
+    {
+        std::fprintf(stderr, "%s\n", mysql_error(db));
+    }
+    // @note migration: widen password column for "sha256:<hex>" hashes
+    if (mysql_query(db, "ALTER TABLE peer MODIFY password VARCHAR(128)"))
     {
         std::fprintf(stderr, "%s\n", mysql_error(db));
     }

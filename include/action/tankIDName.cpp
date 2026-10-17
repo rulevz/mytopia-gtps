@@ -10,7 +10,7 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 
     std::vector<std::string> pipes = readch(header, '|');
-    printf("[login] tankIDName: pipes=%zu\n", pipes.size()); // @note debug logging
+    if (g_verbose) printf("[login] tankIDName: pipes=%zu\n", pipes.size()); // @note debug logging
     if (pipes.empty() || pipes.size() < 41ull) enet_peer_disconnect_later(event.peer, 0);
 
     /* @todo instead of setting these values we should check if there valid from SQL.*/
@@ -34,10 +34,11 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
         result.length = &glen;
         mysql_stmt_bind_result(hStmt.pStmt, &result);
         hStmt.execute();
+        mysql_stmt_store_result(hStmt.pStmt); // @note buffer result; keeps the connection in sync
         hStmt.fetch();
         gid.resize(glen);
         if (!gid.empty()) pPeer->growid = gid;
-        printf("[login] resolved growid by uid=%d: '%s'\n", pPeer->user_id, pPeer->growid.c_str()); // @note debug logging
+        if (g_verbose) printf("[login] resolved growid by uid=%d: '%s'\n", pPeer->user_id, pPeer->growid.c_str()); // @note debug logging
     }
     if (pPeer->growid.empty())
     {

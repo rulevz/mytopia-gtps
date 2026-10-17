@@ -61,3 +61,20 @@ std::string base64_decode(const std::string& encoded)
     decode.resize(static_cast<std::size_t>(bio_read));
     return decode;
 }
+
+std::string sha256_hex(const std::string &data)
+{
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len = 0;
+    EVP_Digest(data.data(), data.size(), digest, &digest_len, EVP_sha256(), NULL);
+
+    static constexpr char hex_digits[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(digest_len * 2ull);
+    for (unsigned int i = 0; i < digest_len; ++i)
+    {
+        out.push_back(hex_digits[digest[i] >> 4]);
+        out.push_back(hex_digits[digest[i] & 0x0f]);
+    }
+    return out;
+}

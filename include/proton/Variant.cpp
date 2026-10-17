@@ -114,7 +114,7 @@ void send_varlist(ENetPeer *peer, VariantList vlist, int netid, int delay)
 {
 	u_int size = 0;
     u_char *pMem = vlist.SerializeToMem(&size, NULL);
-    printf("[send] varlist %u bytes (netid=%d delay=%d)\n", size, netid, delay); // @note debug logging
+    if (g_verbose) printf("[send] varlist %u bytes (netid=%d delay=%d)\n", size, netid, delay); // @note debug logging
 
     ::blob data = compress_state(::gamePacket{
         .type = 01, // @note PACKET_CALL_FUNCTION

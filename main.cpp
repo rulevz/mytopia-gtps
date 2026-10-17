@@ -12,14 +12,21 @@
 #include "include/automate/holiday.hpp" // @note holiday
 #include <csignal>
 
+bool g_verbose = false;
+
 namespace
 {
     volatile std::sig_atomic_t gSignal = 0;
 }
 static void signal_handler(int signal) { gSignal = signal; }
 
-int main()
+int main(int argc, char **argv)
 {
+    for (int i = 1; i < argc; ++i)
+    {
+        const std::string_view arg{ argv[i] };
+        if (arg == "--verbose" || arg == "-v") g_verbose = true;
+    }
     std::signal(SIGINT, signal_handler);
 #ifdef SIGHUP // @note unix
     std::signal(SIGHUP, signal_handler); // @note PuTTY, SSH problems

@@ -145,6 +145,14 @@ public:
 
 extern ENetHost* host;
 
+/* @return "sha256:<hex>" of sha256(growid + ":" + password) */
+extern std::string hash_password(const std::string &growid, const std::string &password);
+
+/* @return true when credentials are valid (or the account does not exist yet and
+   will be registered by peer::load). Legacy plaintext passwords are accepted and
+   upgraded to a hash on success. */
+extern bool peer_auth(const std::string &growid, const std::string &password);
+
 enum peer_condition
 {
     PEER_ALL, // @note all peer(s)

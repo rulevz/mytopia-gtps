@@ -138,7 +138,7 @@ void https::listener()
             if (getpeername(fd, reinterpret_cast<sockaddr*>(&peer_addr), &peer_len) == 0)
                 inet_ntop(AF_INET, &peer_addr.sin_addr, peer_ip, sizeof(peer_ip));
         }
-        printf("[https] connection from %s\n", peer_ip);
+        if (g_verbose) printf("[https] connection from %s\n", peer_ip);
 
         /* https://docs.openssl.org/3.0/man3/SSL_new/#return-values */
         SSL *ssl = SSL_new(ctx);
@@ -154,12 +154,12 @@ void https::listener()
             const int length{ sizeof(buf) };
 
             int rbytes = SSL_read(ssl, buf, length);
-            if (rbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
+            if (rbytes <= 0) { if (g_verbose) ERR_print_errors_fp(stderr); } // @note eof here is usually just a client disconnect
             else
             {
                 int line_end = 0; // @note log request first line: method + path (debug)
                 while (line_end < rbytes && buf[line_end] != '\r' && buf[line_end] != '\n') ++line_end;
-                printf("[https] request bytes: %d | %s | %.*s\n", rbytes, peer_ip, line_end, buf);
+                if (g_verbose) printf("[https] request bytes: %d | %s | %.*s\n", rbytes, peer_ip, line_end, buf);
 
                 int wbytes = SSL_write(ssl, response.c_str(), response.size());
                 if (wbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
@@ -167,10 +167,9 @@ void https::listener()
         }
 
         /* "It can also occur when not all data was read using SSL_read()." */
-        if (SSL_shutdown(ssl) <0) 
+        if (SSL_shutdown(ssl) < 0) 
         {
-            //int ret = SSL_get_error(ssl, 3);
-            ERR_print_errors_fp(stderr);
+            if (g_verbose) ERR_print_errors_fp(stderr);
         }
         SSL_free(ssl);
         if (shutdown(fd, 2) == SOCKET_ERROR) cross_log("failed to shutdown socket"); // @todo unsure if WSA can handle this.

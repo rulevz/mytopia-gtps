@@ -20,6 +20,49 @@ bool peer::exists(const std::string &growid)
     return (!mysql_stmt_store_result(hStmt.pStmt) && mysql_stmt_num_rows(hStmt.pStmt) > 0);
 }
 
+std::string hash_password(const std::string &growid, const std::string &password)
+{
+    return "sha256:" + sha256_hex(growid + ":" + password);
+}
+
+bool peer_auth(const std::string &growid, const std::string &password)
+{
+    std::string stored{};
+
+    { // @note scoped: the SELECT must be closed before any other statement runs on
+      // the same connection, otherwise MariaDB throws "commands out of sync"
+        ::hStmt hStmt{ "SELECT password FROM peer WHERE growid = ? LIMIT 1" };
+
+        MYSQL_BIND param = make_bind_in(growid);
+        hStmt.bind_param(&param);
+
+        u_long length = 0;
+        MYSQL_BIND result = make_bind_out(stored);
+        result.length = &length;
+        mysql_stmt_bind_result(hStmt.pStmt, &result);
+
+        hStmt.execute();
+        if (mysql_stmt_store_result(hStmt.pStmt) || mysql_stmt_fetch(hStmt.pStmt) != 0) return true; // @note no account yet -> load() will register it
+        if (length == 0) return false; // @note account exists but has an empty password -> reject
+
+        stored.resize(length);
+    }
+
+    if (stored.starts_with("sha256:")) return stored == hash_password(growid, password);
+
+    // @note legacy plaintext password: compare, then upgrade in-place
+    if (stored == password)
+    {
+        const std::string hashed = hash_password(growid, password);
+        ::hStmt update{ "UPDATE peer SET password = ? WHERE growid = ?" };
+        MYSQL_BIND params[2] = { make_bind_in(hashed), make_bind_in(growid) };
+        update.bind_param(params);
+        update.execute();
+        return true;
+    }
+    return false;
+}
+
 ::blob slot::to_blob() const
 {
     ::blob blob;
@@ -123,7 +166,7 @@ void peer::load(const std::string &growid, const std::string &password)
     if (!this->exists(growid)) 
     {
         this->mysql_insert("growid", growid);
-        this->mysql_update("password", password);
+        this->mysql_update("password", hash_password(growid, password)); // @note store salted sha256, never plaintext
 
         this->slots.resize(3ull); // @note since it's pre-determined we don't need do peer::emplace, and less iteration
         this->slots[0ull] = ::slot{18, 1};   // @note Fist

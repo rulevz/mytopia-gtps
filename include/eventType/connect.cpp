@@ -5,7 +5,7 @@
 void _connect(ENetEvent& event, int status) 
 {
     unsigned char *ip = reinterpret_cast<unsigned char*>(&event.peer->address.host); // @note debug logging
-    printf("[enet] connect: %u.%u.%u.%u:%u (status %d)\n", ip[0], ip[1], ip[2], ip[3], event.peer->address.port, status);
+    if (g_verbose) printf("[enet] connect: %u.%u.%u.%u:%u (status %d)\n", ip[0], ip[1], ip[2], ip[3], event.peer->address.port, status);
 
     ENetPacket *packet = enet_packet_create(nullptr, sizeof(status)+1, ENET_PACKET_FLAG_RELIABLE);
 
