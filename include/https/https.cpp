@@ -3,6 +3,7 @@
 #include "server_data.hpp"
 
 #include <openssl/err.h>
+#include <cstdlib>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -59,7 +60,7 @@ void https::listener()
     }
 
     /* https://docs.openssl.org/master/man3/SSL_CTX_use_certificate/#return-values */
-    if (SSL_CTX_use_certificate_file(ctx, "resources/ctx/server.crt", SSL_FILETYPE_PEM) != 1 ||
+    if (SSL_CTX_use_certificate_chain_file(ctx, "resources/ctx/server.crt") != 1 ||
         SSL_CTX_use_PrivateKey_file(ctx, "resources/ctx/server.key", SSL_FILETYPE_PEM)  != 1)
     {
         ERR_print_errors_fp(stderr);
@@ -85,7 +86,9 @@ void https::listener()
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(443);
+    u_short https_port = 443; // @note local dev override: GUROTOPIA_HTTPS_PORT env (bind <1024 needs root)
+    if (const char *port_env = std::getenv("GUROTOPIA_HTTPS_PORT")) https_port = static_cast<u_short>(std::stoi(port_env));
+    addr.sin_port = htons(https_port);
     socklen_t addrlen = sizeof(addr);
 
     /* https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-bind */
@@ -127,7 +130,16 @@ void https::listener()
         /* https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-accept */
         SOCKET fd = accept(socket, reinterpret_cast<sockaddr*>(&addr), &addrlen);
         if (fd == INVALID_SOCKET) continue;
-        
+
+        char peer_ip[INET_ADDRSTRLEN] = "?"; // @note debug: log client IP for diagnostics
+        {
+            struct sockaddr_in peer_addr{};
+            socklen_t peer_len = sizeof(peer_addr);
+            if (getpeername(fd, reinterpret_cast<sockaddr*>(&peer_addr), &peer_len) == 0)
+                inet_ntop(AF_INET, &peer_addr.sin_addr, peer_ip, sizeof(peer_ip));
+        }
+        printf("[https] connection from %s\n", peer_ip);
+
         /* https://docs.openssl.org/3.0/man3/SSL_new/#return-values */
         SSL *ssl = SSL_new(ctx);
         if (!ssl || !SSL_up_ref(ssl)) continue;
@@ -138,14 +150,16 @@ void https::listener()
             ERR_print_errors_fp(stderr);
         }
         else {
-            char buf[213]; // @note size of growtopia's POST request.
+            char buf[4096]; // @note read the whole request (client POST size varies by version)
             const int length{ sizeof(buf) };
 
             int rbytes = SSL_read(ssl, buf, length);
             if (rbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
-            else if (rbytes == length) // @note save time instead of doing >0
+            else
             {
-                printf("%s\n", buf); // @note to confirm the peer connected. else you could also see if loginurl dashboard appears.
+                int line_end = 0; // @note log request first line: method + path (debug)
+                while (line_end < rbytes && buf[line_end] != '\r' && buf[line_end] != '\n') ++line_end;
+                printf("[https] request bytes: %d | %s | %.*s\n", rbytes, peer_ip, line_end, buf);
 
                 int wbytes = SSL_write(ssl, response.c_str(), response.size());
                 if (wbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
