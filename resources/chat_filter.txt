@@ -1,0 +1,14 @@
+# Chat filter — substring match, case-insensitive. One entry per line.
+# Lines starting with '#' are comments. Add your own words below.
+# Note: keep entries lowercase.
+
+anjing
+kontol
+memek
+bangsat
+goblok
+tolol
+fuck
+shit
+bitch
+asshole

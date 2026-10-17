@@ -2,6 +2,7 @@
 #include "commands/__command.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 #include "tools/time.hpp"
+#include "automate/chat_filter.hpp"
 #include "input.hpp"
 
 void action::input(ENetEvent& event, const std::string& header)
@@ -48,6 +49,11 @@ void action::input(ENetEvent& event, const std::string& header)
         if (pPeer->muted)
         {
             on::ConsoleMessage(event.peer, "`4You are muted.``");
+            return;
+        }
+        if (chat_filter_blocked(text))
+        {
+            on::ConsoleMessage(event.peer, "`4Your message was blocked by the chat filter.``");
             return;
         }
         if (pPeer->state & S_DUCT_TAPE)

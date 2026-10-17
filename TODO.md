@@ -32,8 +32,9 @@ client before the items parser is upgraded (see P2).
       (access lists, wrench UI) still pending
 - [x] Commands: /give, /setrole, /kick, /ban, /unban, /mute with role gates (MODERATOR+/DEVELOPER+);
       role/banned/muted persisted in DB (startup migrations). Verified via tests/sim_command.js
-- [ ] Chat & moderation basics (word filter, mute, console log)
-- [ ] Store/economy: store.txt flow, gems & bux, IAP simulation path
+- [x] Chat & moderation: mute + word filter (resources/chat_filter.txt - edit bebas) + [admin] audit log
+- [~] Store/economy: gems persisted (starter 1000 + /setgems), store tabs & purchases verified
+      (E4: World Lock purchase deducts & persists); real-money IAP packs still stubbed
 - [ ] Verify item rendering with the served items.dat (0x1a) on 5.57
 - [ ] Trade system (packets exist in the retail protocol - needs RE/capture work)
 

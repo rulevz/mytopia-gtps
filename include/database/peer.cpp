@@ -136,6 +136,7 @@ void peer::mysql_select_all()
     this->role       = static_cast<u_char>(this->mysql_select<signed>("role"));
     this->banned     = this->mysql_select<signed>("banned") != 0;
     this->muted      = this->mysql_select<signed>("muted") != 0;
+    this->gems       = this->mysql_select<signed>("gems");
 
     auto blob = this->mysql_select<std::vector<u_char>>("inventory");
     const u_char *u8 = blob.data();
@@ -176,6 +177,9 @@ void peer::load(const std::string &growid, const std::string &password)
         this->slots[1ull] = ::slot{32, 1};   // @note Wrench
         this->slots[2ull] = ::slot{9640, 1}; // @note My First World Lock
         this->mysql_update<std::vector<u_char>>("inventory", this->serialize_inventory().data());
+
+        this->gems = 1000; // @note starter gems so new players can try the store
+        this->mysql_update("gems", this->gems);
     }
     this->mysql_select_all();
 }
@@ -183,6 +187,7 @@ void peer::load(const std::string &growid, const std::string &password)
 peer::~peer()
 {
     if (this->growid.empty()) return; // @note an offline "fake" peer that was never loaded has nothing to save
+    this->mysql_update("gems", this->gems);
     this->mysql_update<std::vector<u_char>>("inventory", this->serialize_inventory().data());
 }
 

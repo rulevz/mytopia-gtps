@@ -2,6 +2,7 @@
 #include <cctype>
 #include <cstdlib>
 #include "onVariant/ConsoleMessage.hpp"
+#include "onVariant/SetBux.hpp"
 
 #include "admin.hpp"
 
@@ -189,4 +190,24 @@ void mute(ENetEvent& event, const std::string_view text)
     }
     printf("[admin] '%s' is now %s\n", name.c_str(), now_muted ? "muted" : "unmuted"); // @note moderation event, always logged
     on::ConsoleMessage(event.peer, std::format("{} is now {}.", name, now_muted ? "muted" : "unmuted"));
+}
+
+void setgems(ENetEvent& event, const std::string_view text)
+{
+    if (!require_role(event, DEVELOPER)) return;
+
+    const std::string rest = arg_after(text, "setgems");
+    char *end = nullptr;
+    const long amount = rest.empty() ? -1 : std::strtol(rest.c_str(), &end, 10);
+    if (amount < 0 || amount > 2000000000)
+    {
+        send_action(*event.peer, "log", "msg|usage: /setgems {amount}");
+        return;
+    }
+
+    ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+    pPeer->gems = static_cast<signed>(amount);
+    pPeer->mysql_update("gems", pPeer->gems);
+    on::SetBux(event);
+    on::ConsoleMessage(event.peer, std::format("Gems set to {}.", pPeer->gems));
 }

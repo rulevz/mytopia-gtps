@@ -9,6 +9,7 @@ void kick(ENetEvent& event, const std::string_view text);
 void ban(ENetEvent& event, const std::string_view text);
 void unban(ENetEvent& event, const std::string_view text);
 void mute(ENetEvent& event, const std::string_view text);
+void setgems(ENetEvent& event, const std::string_view text);
 
 /* @return true when the caller role is >= minimum; otherwise sends the
    permission-denied message and returns false. */

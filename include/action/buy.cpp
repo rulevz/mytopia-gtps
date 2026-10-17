@@ -142,6 +142,7 @@ void action::buy(ENetEvent& event, const std::string& header, const std::string_
                     "You've purchased `0{}`` for `${}`` `2Growtokens``.\nYou have `${}`` `2Growtokens`` left.\n\n`5Received: ```0{}``",
                     shouhin.name, growtoken_cost, growtoken->count - growtoken_cost, received)
             });
+            if (_tab < 5/*growtoken tab*/) pPeer->mysql_update("gems", pPeer->gems); // @note persist the deduction right away
             if (_tab < 5/*growtoken tab*/) on::SetBux(event);
             else modify_item_inventory(event, ::slot(growtoken->id, -growtoken_cost));
             break;

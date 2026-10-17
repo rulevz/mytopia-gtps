@@ -16,6 +16,7 @@ void create_table_if_not_exist()
             "role TINYINT DEFAULT 0,"
             "banned TINYINT DEFAULT 0,"
             "muted TINYINT DEFAULT 0,"
+            "gems INT DEFAULT 0,"
             "inventory BLOB"
         ")";
     std::string query_world = 
@@ -37,7 +38,8 @@ void create_table_if_not_exist()
     // @note migrations: role + moderation columns (MariaDB supports IF NOT EXISTS here)
     if (mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS role TINYINT DEFAULT 0") ||
         mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS banned TINYINT DEFAULT 0") ||
-        mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS muted TINYINT DEFAULT 0"))
+        mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS muted TINYINT DEFAULT 0") ||
+        mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS gems INT DEFAULT 0"))
     {
         std::fprintf(stderr, "%s\n", mysql_error(db));
     }

@@ -27,11 +27,11 @@ static constexpr std::string_view emotes[24]{
 static constexpr std::string_view named_help =
     "/time /sb {msg} /find /warp {world} /punch {id} /skin {id} /who /me {msg} "
     "/news /weather {id} /ghost /give {id} {count} /setrole {growid} {role} "
-    "/kick {growid} /ban {growid} /unban {growid} /mute {growid}";
+    "/kick {growid} /ban {growid} /unban {growid} /mute {growid} /setgems {amount}";
 
-std::array<std::string_view, 12> cmd_requires_arg{
+std::array<std::string_view, 13> cmd_requires_arg{
     "sb", "warp", "punch", "skin", "me", "weather",
-    "give", "setrole", "kick", "ban", "unban", "mute"
+    "give", "setrole", "kick", "ban", "unban", "mute", "setgems"
 };
 
 /* if you plan to use this outside of this file, please include in __command.hpp (^-^) - and just make it a void. */
@@ -66,7 +66,8 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"kick", &kick},
         {"ban", &ban},
         {"unban", &unban},
-        {"mute", &mute}
+        {"mute", &mute},
+        {"setgems", &setgems}
     };
 
     for (std::string_view emote : emotes)

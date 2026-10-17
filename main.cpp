@@ -10,6 +10,7 @@
 #include "include/https/server_data.hpp" // @note gServer_data
 #include "include/database/database_config.hpp" // @note load_database_config(), gDatabase_config
 #include "include/automate/holiday.hpp" // @note holiday
+#include "include/automate/chat_filter.hpp" // @note parse_chat_filter()
 #include <csignal>
 #include <chrono>
 
@@ -53,6 +54,7 @@ int main(int argc, char **argv)
     mysql_connect();
     decode_items();      // @note reads items.dat into legible class members (id, item name, ect)
     parse_store();       // @todo thread loop this so the store can update without restarting server (stored in .\resource\store.txt)
+    parse_chat_filter(); // @note loads resources/chat_filter.txt (optional)
     check_for_holiday(); // @note check for any holidays using local time (your VPS or local time) - @todo thread loop so it can change the holiday without restarting
 
     ENetEvent event{};

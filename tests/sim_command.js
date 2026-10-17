@@ -33,8 +33,13 @@ function textPacket(peer, text) {
     ];
     textPacket(peer, parts.join("\n") + "\n");
     setTimeout(() => {
-      console.log(">> sending:", CMD);
-      textPacket(peer, "action|input\ntext|" + CMD + "\n");
+      if (process.env.RAW) {
+        console.log(">> sending RAW:", JSON.stringify(process.env.RAW));
+        textPacket(peer, process.env.RAW);
+      } else {
+        console.log(">> sending:", CMD);
+        textPacket(peer, "action|input\ntext|" + CMD + "\n");
+      }
     }, WAIT);
   });
 
