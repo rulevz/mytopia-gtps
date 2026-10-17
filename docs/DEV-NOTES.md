@@ -67,5 +67,14 @@ Requires `items.dat`, `server_data.php`, `mysql_login.txt` in the working direct
 ## Security
 - NEVER commit: `resources/ctx/server.crt|key` (real TLS material), `items.dat`
   (game data), DB credentials, signing keystore, DuckDNS/other tokens, `LOCAL-RUN.md`.
-- The debug logging currently prints login payloads; disable/redact before a public
-  deployment (see TODO.md P0).
+- The debug logging is gated behind `--verbose` (quiet by default); auth failures are
+  always logged.
+
+## Auth, logging & ops (P0)
+- Passwords: `sha256:` + sha256(growid + ":" + password), stored in `peer.password`
+  (column auto-widened to VARCHAR(128) by a startup migration). Legacy plaintext
+  rows upgrade on first successful login. Wrong password -> `logon_fail`.
+- Logging: quiet by default; run `./main.out --verbose` for packet/request diagnostics.
+- Autostart: `scripts/autostart-cron.sh` installs `@reboot` start + daily backup entries.
+- Backup: `scripts/backup.sh` -> `~/backups/gtps-<ts>.tar.gz` (DB dump + items.dat +
+  configs, keeps the last 14).

@@ -7,7 +7,10 @@ const HOST = "127.0.0.1";
 const PORT = 17091;
 
 // ltoken = base64 of "_token=<...>&growId=<name>&password=<pw>&reg=<0|1>"
-const b64 = Buffer.from("_token=abc&growId=tester&password=test1234&reg=0").toString("base64");
+// Override the account with env vars: GROWID=.. PASSWORD=.. node sim_protocol_login.js
+const GROWID = process.env.GROWID || "tester";
+const PASSWORD = process.env.PASSWORD || "test1234";
+const b64 = Buffer.from(`_token=abc&growId=${GROWID}&password=${PASSWORD}&reg=0`).toString("base64");
 
 (async () => {
   await init();

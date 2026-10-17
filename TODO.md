@@ -16,13 +16,12 @@ client before the items parser is upgraded (see P2).
 - [x] Integration test simulators + diagnostics logging
 
 ## P0 - Make it solid to actually play & operate
-- [ ] Autostart on VPS reboot (systemd unit or @reboot cron; currently manual tmux start)
-- [ ] **Verify passwords on login** - today accounts auto-register and the password is
-      never checked (MUST fix before opening the server to more people)
-- [ ] Redact sensitive logging for production (login payloads/tokens are printed);
-      add a `--verbose` flag and keep quiet mode by default
+- [x] Autostart on VPS reboot: `scripts/autostart-cron.sh` installs the @reboot entry
+- [x] **Password verification on login** (salted sha256; legacy plaintext auto-upgrades;
+      password column widened by a startup migration)
+- [x] Quiet logging by default; `--verbose` flag for diagnostics (auth failures always logged)
 - [ ] Multi-player testing pass (2+ devices: movement, tile sync, chat, disconnect)
-- [ ] Daily backups: MariaDB datadir + items.dat + player DB dumps
+- [x] Daily backups: `scripts/backup.sh` (DB dump + items.dat + configs, keeps 14) + cron entry
 - [ ] Crash/robustness sweep: review `@todo` markers in the source, DB reconnect handling
 
 ## P1 - Gameplay content
