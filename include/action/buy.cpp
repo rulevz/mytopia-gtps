@@ -122,7 +122,7 @@ void action::buy(ENetEvent& event, const std::string& header, const std::string_
             /*{id, amount}*/
             for (const std::pair<short, short> &item : shouhin.items)
             {
-                const std::string &raw_name = id_to_item(item.first).raw_name;
+                const ::item &bought = id_to_item(item.first);
 
                 if (item.first == 9412) // @note 9412 is the id for increase backpack sprite, but peer wont actually be given that item.
                 {
@@ -130,7 +130,9 @@ void action::buy(ENetEvent& event, const std::string& header, const std::string_
                     send_inventory_state(event); // @note update the new slots
                 }
                 else modify_item_inventory(event, {item.first, item.second});
-                received.append(std::format("{}, ", raw_name)); // @todo add green text to rare items, or something cool.
+                received.append(bought.rarity >= 40 ?
+                    std::format("`2{}``, ", bought.raw_name) : // @note rare items glow green
+                    std::format("{}, ", bought.raw_name));
             }
             shouhin.items.clear(); // @todo
 

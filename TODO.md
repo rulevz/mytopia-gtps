@@ -27,7 +27,10 @@ client before the items parser is upgraded (see P2).
       86 source `@todo` markers triaged - biggest: tile_change (19), world (13), wrench (5)
 
 ## P1 - Gameplay content
-- [ ] Work through `@todo` markers by priority: tile_change.cpp (19), world.cpp (13), wrench.cpp (5), SetClothing (4)
+- [~] `@todo` sweep: duct-tape 10min expiry (main-loop watchdog), object stacking cap 200 +
+      overflow stacks, access list written to map data, tile refresh on block destruction,
+      rare-item purchase text. Remaining (needs RE/wikidata): range-locks, GBC reward list,
+      display-block dialog, provider countdown, map header bytes 0x19/0x40
 - [x] Worlds: save/load + autosave; world lock flows complete (place claims ownership,
       wrench LockEdit dialog, public/private, access list 20 slots, entry gate) - verified
       end-to-end via tests/sim_lock_flow.js (owner claim / blocked entry / access grant /

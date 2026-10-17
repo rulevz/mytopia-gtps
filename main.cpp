@@ -11,6 +11,8 @@
 #include "include/database/database_config.hpp" // @note load_database_config(), gDatabase_config
 #include "include/automate/holiday.hpp" // @note holiday
 #include "include/automate/chat_filter.hpp" // @note parse_chat_filter()
+#include "include/onVariant/SetClothing.hpp" // @note on::SetClothing (duct tape expiry)
+#include "include/tools/time.hpp" // @note ticks()
 #include <csignal>
 #include <chrono>
 
@@ -60,6 +62,7 @@ int main(int argc, char **argv)
     ENetEvent event{};
     auto db_ping_at = std::chrono::steady_clock::now();
     auto world_save_at = std::chrono::steady_clock::now() + std::chrono::minutes(5);
+    auto duct_tape_check_at = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!gSignal)
     {
         while (enet_host_service(host, &event, 1000/*ms*/) > 0)
@@ -72,6 +75,21 @@ int main(int argc, char **argv)
             for (::world &w : worlds) w.save();
             if (g_verbose) printf("[world] autosaved %zu world(s)\n", worlds.size());
             world_save_at = std::chrono::steady_clock::now() + std::chrono::minutes(5);
+        }
+
+        // @note every ~5s: duct tape expires after 10 minutes
+        if (std::chrono::steady_clock::now() > duct_tape_check_at)
+        {
+            for (ENetPeer *p : peers())
+            {
+                ::peer *o = static_cast<::peer*>(p->data);
+                if (o != nullptr && o->state & S_DUCT_TAPE && ticks() - o->duct_tape_tick >= 600)
+                {
+                    o->state &= ~S_DUCT_TAPE;
+                    on::SetClothing(*p);
+                }
+            }
+            duct_tape_check_at = std::chrono::steady_clock::now() + std::chrono::seconds(5);
         }
 
         // @note every ~30s: watchdog the MariaDB connection and reconnect when it died

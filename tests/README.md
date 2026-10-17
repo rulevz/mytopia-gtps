@@ -25,6 +25,9 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
   World-lock flow driver (`STEP=1..4`, env `WORLD/TX/TY/PUBLIC/ACCESS`): place lock,
   wrench (LockEdit dialog), submit dialog (public/access), join-check. Used to verify
   ownership claim, entry gate and access list end-to-end.
+- `node sim_punch.js`
+  Joins a world and punches a tile 5 times — exercises block damage, destruction, drops
+  (object stacking) and the tank bounds guard.
 - `node sim_command.js`
   Full login then sends one command/chat message
   (`GROWID=.. UID=.. CMD="/help" node sim_command.js`), prints every server reply —

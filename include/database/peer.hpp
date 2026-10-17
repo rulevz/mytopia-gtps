@@ -105,6 +105,7 @@ public:
     u_int hair_color = bgra::GREEN | bgra::GREEN | bgra::RED | bgra::ALPHA; // @note value declines for specfic hair colors
 
     int state{}; // @note using pstate::
+    u_int duct_tape_tick{}; // @note ticks() when duct tape was applied (expires after 10 min)
 
     ::Billboard billboard{};
 

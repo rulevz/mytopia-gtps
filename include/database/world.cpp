@@ -137,7 +137,8 @@ void block::reset()
                 blob.u8(this->lock_state);
                 blob.i32(this->owner);
                 blob.i32(access);
-                /* @todo access list */
+                for (const int uid : this->access)
+                    if (uid) blob.i32(uid); // @note the access list itself (user ids)
             }
             else if (type == '\x04'/*seed*/)
             {
@@ -497,10 +498,17 @@ void item_change_object(ENetEvent &event, ::gamePacket gamePacket)
 void merge_object(ENetEvent &event, ::slot slot, const ::pos &pos, ::world &world)
 {
     auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
-        return object.id == slot.id && (object.pos.by_32(true) == pos.by_32(true));
+        return object.id == slot.id && (object.pos.by_32(true) == pos.by_32(true)) && object.count < 200;
     });
-    /* @todo avoid surpassing 200 and call add_object() for the remaining amount */ // @note future self reference peer::emplace()...
-    object->count += slot.count;
+    if (object == world.objects.end()) // @note no (non-full) stack here: create one
+    {
+        add_object(event, slot, pos, world);
+        return;
+    }
+
+    const short space = 200 - object->count;
+    const short merged = std::min(slot.count, space);
+    object->count += merged;
 
     item_change_object(event, ::gamePacket{
         .netid = (int)0xfffffffd,
@@ -509,6 +517,9 @@ void merge_object(ENetEvent &event, ::slot slot, const ::pos &pos, ::world &worl
         .id    = object->id,
         .pos   = object->pos
     });
+
+    if (slot.count > merged) // @note overflow: spawn additional stacks for the remainder
+        add_object(event, ::slot(slot.id, slot.count - merged), pos, world);
 }
 
 void remove_object(ENetEvent& event, signed uid)
@@ -524,25 +535,34 @@ void remove_object(ENetEvent& event, signed uid)
 
 int add_object(ENetEvent& event, ::slot slot, const ::pos& pos, ::world &world)
 {
-    /* @todo got a little messy */
-    auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
-        return object.id == slot.id && (object.pos.by_32(true) == pos.by_32(true));
-    });
-    if (object != world.objects.end() && object->count < 200/*@todo*/) 
+    int uid = 0;
+    short remaining = slot.count;
+    while (remaining > 0)
     {
-        merge_object(event, slot, pos, world);
-        return object->uid;
-    }
-    ::object it = world.objects.emplace_back(::object(slot.id, slot.count, pos, ++world.last_object_uid)); // @note a iterator ahead of time
+        ::object *target = nullptr;
+        for (::object &object : world.objects)
+            if (object.id == slot.id && object.pos.by_32(true) == pos.by_32(true) && object.count < 200)
+            {
+                target = &object;
+                break;
+            }
+        if (target == nullptr)
+            target = &world.objects.emplace_back(::object(slot.id, 0, pos, ++world.last_object_uid));
 
-    item_change_object(event, ::gamePacket{
-        .netid = (int)0xffffffff,
-        .uid   = (int)it.uid,
-        .count = static_cast<float>(slot.count),
-        .id    = it.id,
-        .pos   = pos
-    });
-    return it.uid;
+        const short added = std::min<short>(remaining, 200 - target->count); // @note stack cap: 200
+        target->count += added;
+        remaining -= added;
+        uid = target->uid;
+
+        item_change_object(event, ::gamePacket{
+            .netid = (int)0xffffffff,
+            .uid   = (int)target->uid,
+            .count = static_cast<float>(target->count),
+            .id    = target->id,
+            .pos   = pos
+        });
+    }
+    return uid;
 }
 
 void add_drop(ENetEvent &event, ::slot im, ::pos pos, ::world &world) // @todo

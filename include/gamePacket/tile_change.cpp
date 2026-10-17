@@ -232,7 +232,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             else if (block.hits[1] >= item.hits) block.bg = 0, block.hits[1] = 0;
             else return;
             
-            /* @todo update these changes with tile_update() */
+            tile_update = true; // @note refresh the tile cache after destruction
             block.state[2] = 0x00; // @note reset tile direction
             block.state[3] &= ~S_VANISH; // @note remove paint
             
@@ -439,7 +439,8 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
 
                         if (gamePacket.punch == _p->pos.by_32(true))
                         {
-                            _p->state |= S_DUCT_TAPE; // @todo add a 10 minute timer that will remove it.
+                            _p->state |= S_DUCT_TAPE;
+                            _p->duct_tape_tick = ticks(); // @note expires after 10 minutes (main loop watchdog)
                             on::SetClothing(p);
                         }
                     });
