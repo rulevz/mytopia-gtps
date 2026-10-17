@@ -18,6 +18,9 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
 - `node sim_modern_login.js`
   Stage-2 (modern clients 5.4x+): sends a session payload starting with
   `requestedName|` carrying `user|<uid>`, expects GDPR + OnSuperMainStart varlists.
+- `node multi_client_smoke.js`
+  Concurrency smoke: two clients log in simultaneously (modern payload); both must
+  receive server varlists and the server must stay alive (crash regression guard).
 
 Notes:
 - `sim_protocol_login.js` registers/loads the account inside the ltoken payload

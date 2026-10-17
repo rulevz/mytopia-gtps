@@ -11,6 +11,7 @@
 #include "include/database/database_config.hpp" // @note load_database_config(), gDatabase_config
 #include "include/automate/holiday.hpp" // @note holiday
 #include <csignal>
+#include <chrono>
 
 bool g_verbose = false;
 
@@ -55,10 +56,25 @@ int main(int argc, char **argv)
     check_for_holiday(); // @note check for any holidays using local time (your VPS or local time) - @todo thread loop so it can change the holiday without restarting
 
     ENetEvent event{};
+    auto db_ping_at = std::chrono::steady_clock::now();
     while (!gSignal)
+    {
         while (enet_host_service(host, &event, 1000/*ms*/) > 0)
             if (const auto i = eventType_pool.find(event.type); i != eventType_pool.end())
                 i->second(event);
+
+        // @note every ~30s: watchdog the MariaDB connection and reconnect when it died
+        if (std::chrono::steady_clock::now() > db_ping_at)
+        {
+            if (mysql_ping(db))
+            {
+                printf("[MariaDB] connection lost, reconnecting...\n");
+                mysql_close(db);
+                mysql_connect();
+            }
+            db_ping_at = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        }
+    }
 
     safe_disconnect_peers(gSignal);
     mysql_close(db); // @note deletes db (MYSQL* allocation)

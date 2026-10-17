@@ -20,11 +20,14 @@ client before the items parser is upgraded (see P2).
 - [x] **Password verification on login** (salted sha256; legacy plaintext auto-upgrades;
       password column widened by a startup migration)
 - [x] Quiet logging by default; `--verbose` flag for diagnostics (auth failures always logged)
-- [ ] Multi-player testing pass (2+ devices: movement, tile sync, chat, disconnect)
+- [~] Multi-player: automated concurrency smoke test added (`tests/multi_client_smoke.js`);
+      real-device pass still pending (2+ phones: movement, tile sync, chat, disconnect)
 - [x] Daily backups: `scripts/backup.sh` (DB dump + items.dat + configs, keeps 14) + cron entry
-- [ ] Crash/robustness sweep: review `@todo` markers in the source, DB reconnect handling
+- [~] Robustness: MariaDB connection watchdog + auto-reconnect added (30s ping in main loop);
+      86 source `@todo` markers triaged - biggest: tile_change (19), world (13), wrench (5)
 
 ## P1 - Gameplay content
+- [ ] Work through `@todo` markers by priority: tile_change.cpp (19), world.cpp (13), wrench.cpp (5), SetClothing (4)
 - [ ] Worlds: full save/load (blocks + objects), periodic autosave, complete world-lock
       system (ownership, access lists, wrench UI flows)
 - [ ] Commands: expand set (/give, /setrole, /ban, /unban, /mute, /kick, ...) with role gates
