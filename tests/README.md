@@ -25,6 +25,9 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
   World-lock flow driver (`STEP=1..4`, env `WORLD/TX/TY/PUBLIC/ACCESS`): place lock,
   wrench (LockEdit dialog), submit dialog (public/access), join-check. Used to verify
   ownership claim, entry gate and access list end-to-end.
+- `python3 itemsdat_check.py file.dat [...]`
+  items.dat format validator: mirrors the C++ parser (through 0x1b) and asserts EXACT
+  end-of-file consumption + printable XOR-decoded names. Run before shipping a new file.
 - `node sim_punch.js`
   Joins a world and punches a tile 5 times — exercises block damage, destruction, drops
   (object stacking) and the tank bounds guard.

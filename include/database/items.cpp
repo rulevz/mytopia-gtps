@@ -201,9 +201,16 @@ void decode_items()
             }
             pos += sizeof(int); // @note default: 0x00 0x00 0x00 0x00
         }
-        if (version == 0x1a) pos += sizeof(std::byte); // May 2026
+        if (version >= 0x1a) pos += sizeof(std::byte); // May 2026
+        
+        if (version >= 0x1b) // @note trailing string (len-prefixed) added for the newest format
+        {
+            len = *reinterpret_cast<short*>(&im_data[pos]);
+            pos += sizeof(short);
+            pos += len;
+        }
         
         items.emplace_back(item);
     }
-    printf("items.dat parsed successfully!\n");
+    printf("items.dat parsed successfully! (%u items, format 0x%02x)\n", count, version);
 }

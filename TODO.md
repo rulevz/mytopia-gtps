@@ -44,10 +44,9 @@ client before the items parser is upgraded (see P2).
 - [ ] Trade system (packets exist in the retail protocol - needs RE/capture work)
 
 ## P2 - Reverse engineering track (keep us up-to-date)
-- [ ] RE the items.dat `0x1b` format (client 5.58+/5.59+): diff new fields, upgrade parser
-      (current decoder supports up to 0x1a; newer files crash the boot)
-- [ ] Client version watch: monitor apkpure version list every release, maintain a
-      compatibility matrix (client version <-> items format <-> server support)
+- [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate
+      fix; verified by exact-EOF parse of real v5.59 (16434 items). Server boots both formats
+- [x] Version matrix + validation tool: docs/ITEMSDAT-FORMATS.md + tests/itemsdat_check.py
 - [ ] Packet captures for unimplemented features (trade, redeem codes, clash, gacha...)
       via the proxy tooling (GTProxy / packet reader)
 - [ ] Write a protocol cheat-sheet from the source + community docs (login flow, tank
