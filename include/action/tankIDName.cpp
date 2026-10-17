@@ -10,18 +10,41 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 
     std::vector<std::string> pipes = readch(header, '|');
+    printf("[login] tankIDName: pipes=%zu\n", pipes.size()); // @note debug logging
     if (pipes.empty() || pipes.size() < 41ull) enet_peer_disconnect_later(event.peer, 0);
 
     /* @todo instead of setting these values we should check if there valid from SQL.*/
     std::string protocol{};
-    for (std::size_t i = 0; i < pipes.size(); ++i) 
+    for (std::size_t i = 0; i + 1ull < pipes.size(); ++i) 
     {
         if      (pipes[i] == "tankIDName") pPeer->growid = pipes[i+1];
         else if (pipes[i] == "protocol")   protocol = pipes[i+1];
         else if (pipes[i] == "country")    pPeer->country = pipes[i+1];
-        else if (pipes[i] == "user")       pPeer->user_id = std::stoi(pipes[i+1]); // @todo validate user_id
+        else if (pipes[i] == "user")     { try { pPeer->user_id = std::stoi(pipes[i+1]); } catch (...) {} } // @todo validate user_id
     }
     if (atoi(protocol.c_str()) == 0) return; // @todo <226
+
+    if (pPeer->growid.empty() && pPeer->user_id > 0) // @note modern session payload has no tankIDName; resolve growid by uid
+    {
+        ::hStmt hStmt{ "SELECT growid FROM peer WHERE uid = ? LIMIT 1" };
+        MYSQL_BIND param = make_bind_in(pPeer->user_id);
+        hStmt.bind_param(&param);
+        std::string gid{}; u_long glen = 0;
+        MYSQL_BIND result = make_bind_out(gid);
+        result.length = &glen;
+        mysql_stmt_bind_result(hStmt.pStmt, &result);
+        hStmt.execute();
+        hStmt.fetch();
+        gid.resize(glen);
+        if (!gid.empty()) pPeer->growid = gid;
+        printf("[login] resolved growid by uid=%d: '%s'\n", pPeer->user_id, pPeer->growid.c_str()); // @note debug logging
+    }
+    if (pPeer->growid.empty())
+    {
+        printf("[login] tankIDName: no growid resolved -> logon_fail\n"); // @note debug logging
+        send_action(*event.peer, "logon_fail", "");
+        return;
+    }
 
     pPeer->load(pPeer->growid, pPeer->password); // @note the ACTUAL loading. the one in protocol.cpp must be removed for performance...
 

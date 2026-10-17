@@ -31,10 +31,12 @@ void action::protocol(ENetEvent& event, const std::string& header)
         if (pPeer->growid.empty() || pPeer->password.empty()) throw std::runtime_error("");
     }
     catch (...) { 
+        printf("[login] protocol: parse FAIL -> logon_fail\n"); // @note debug logging
         send_action(*event.peer, "logon_fail", "");
         return; // @note stop processing invalid protocol data
     }
     pPeer->load(pPeer->growid, pPeer->password); // @todo i want remove this tbh. since we only are fetching user_id which seems a waste.
+    printf("[login] protocol OK: growid=%s uid=%d -> OnSendToServer\n", pPeer->growid.c_str(), pPeer->user_id); // @note debug logging
 
     send_varlist(event.peer, {
         "OnSendToServer", 
