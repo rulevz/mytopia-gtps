@@ -174,6 +174,9 @@ public:
 };
 extern std::vector<world> worlds;
 
+/* @return comma separated growids on the world's access list ("`4(empty)``" when none). */
+extern std::string world_access_list_text(::world &world);
+
 extern void send_action(ENetPeer &p, const std::string &action, const std::string &str);
 
 extern void send_data(ENetPeer &peer, const ::blob &blob);

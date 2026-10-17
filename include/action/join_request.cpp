@@ -30,6 +30,9 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
             it = worlds.emplace(worlds.end(), name);
             
         ::world &world = *it;
+        if (world.owner != 0 && !world.is_public && pPeer->user_id != world.owner &&
+            std::ranges::find(world.access, pPeer->user_id) == world.access.end() && pPeer->role == PLAYER)
+            throw std::runtime_error(std::format("`4{}`` is a locked world. Only the owner and players on the access list can enter!", world.name));
         {
             ::blob blob = compress_state(::gamePacket{ .type = 0x04, /*PACKET_SEND_MAP_DATA*/ .state = state::S_EXTENDED });
             blob.push_back(world.serialize());

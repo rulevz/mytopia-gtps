@@ -21,6 +21,10 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
 - `node multi_client_smoke.js`
   Concurrency smoke: two clients log in simultaneously (modern payload); both must
   receive server varlists and the server must stay alive (crash regression guard).
+- `node sim_lock_flow.js`
+  World-lock flow driver (`STEP=1..4`, env `WORLD/TX/TY/PUBLIC/ACCESS`): place lock,
+  wrench (LockEdit dialog), submit dialog (public/access), join-check. Used to verify
+  ownership claim, entry gate and access list end-to-end.
 - `node sim_command.js`
   Full login then sends one command/chat message
   (`GROWID=.. UID=.. CMD="/help" node sim_command.js`), prints every server reply —

@@ -23,6 +23,7 @@ void create_table_if_not_exist()
         "CREATE TABLE IF NOT EXISTS world ("
             "name VARCHAR(24) NOT NULL PRIMARY KEY,"
             "owner INT DEFAULT 0,"
+            "access TEXT,"
             "blocks BLOB,"
             "objects BLOB"
         ")";
@@ -40,6 +41,11 @@ void create_table_if_not_exist()
         mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS banned TINYINT DEFAULT 0") ||
         mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS muted TINYINT DEFAULT 0") ||
         mysql_query(db, "ALTER TABLE peer ADD COLUMN IF NOT EXISTS gems INT DEFAULT 0"))
+    {
+        std::fprintf(stderr, "%s\n", mysql_error(db));
+    }
+    // @note migration: world access list (comma separated user ids)
+    if (mysql_query(db, "ALTER TABLE world ADD COLUMN IF NOT EXISTS access TEXT"))
     {
         std::fprintf(stderr, "%s\n", mysql_error(db));
     }

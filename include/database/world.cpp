@@ -237,6 +237,19 @@ void world::mysql_select_all()
 {
     this->name = this->mysql_select<std::string>("name");
     this->owner = this->mysql_select<int>("owner");
+    { // @note access list: comma separated user ids
+        const std::string csv = this->mysql_select<std::string>("access");
+        this->access.fill(0);
+        std::size_t pos = 0ull;
+        for (int &uid : this->access)
+        {
+            if (pos >= csv.size()) break;
+            std::size_t next = csv.find(',', pos);
+            if (next == std::string::npos) next = csv.size();
+            try { uid = std::stoi(csv.substr(pos, next - pos)); } catch (...) { uid = 0; }
+            pos = next + 1ull;
+        }
+    }
     {
         this->trees.clear();
         ::blob blob = this->mysql_select<::blob>("blocks");
@@ -282,6 +295,14 @@ void world::mysql_select_all()
             ++i;
         }
     } // @note delete blob, i
+    // @note recompute public flag from the persisted world lock state (blocks blob)
+    this->is_public = false;
+    for (const ::block &block : this->blocks)
+        if (char type = get_type(id_to_item(block.fg)); type == '\x03'/*lock*/ && !is_tile_lock(block.fg))
+        {
+            this->is_public = (block.state[2] & S_PUBLIC) != 0;
+            break;
+        }
     {
         ::blob blob = this->mysql_select<::blob>("objects"); // @note ::blob is cut to the real length, std::vector<u_char> stays at the full buffer size
 
@@ -368,6 +389,15 @@ void world::save()
         }
         this->mysql_update("objects", blob.data());
     }
+    { // @note access list: comma separated user ids (0 = empty slot)
+        std::string csv{};
+        for (const int uid : this->access)
+        {
+            if (!csv.empty()) csv += ',';
+            csv += std::to_string(uid);
+        }
+        this->mysql_update("access", csv);
+    }
 }
 
 world::~world()
@@ -376,6 +406,22 @@ world::~world()
 }
 
 std::vector<world> worlds;
+
+std::string world_access_list_text(::world &world)
+{
+    std::string list{};
+    for (const int uid : world.access)
+    {
+        if (!uid) continue;
+        ::peer target{}; // @note offline "fake" peer, only used to read the growid
+        target.user_id = uid;
+        const std::string name = target.mysql_select<std::string>("growid", "", true);
+        if (name.empty()) continue;
+        if (!list.empty()) list += ", ";
+        list += name;
+    }
+    return list.empty() ? "`4(empty)``" : list;
+}
 
 void send_action(ENetPeer& p, const std::string &action, const std::string &str) 
 {

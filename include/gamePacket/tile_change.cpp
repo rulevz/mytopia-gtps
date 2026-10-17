@@ -523,13 +523,13 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                                 "set_default_color|`o\n"
                                 "add_label_with_icon|big|`wEdit {}``|left|{}|\n"
                                 "add_popup_name|LockEdit|\n"
-                                "add_label|small|`wAccess list:``|left\n"
+                                "add_label|small|`wAccess list:`` {}|left\n"
                                 "embed_data|tilex|{}\n"
                                 "embed_data|tiley|{}\n"
                                 "add_spacer|small|\n"
-                                "add_label|small|Currently, you're the only one with access.``|left\n"
-                                "add_spacer|small|\n"
-                                "add_player_picker|playerNetID|`wAdd``|\n"
+                                "add_player_picker|playerNetID|`wAdd online player``|\n"
+                                "add_text_input|access|Add/remove by name||18|\n"
+                                "add_smalltext|Type a name to add them; type a listed name again to remove it.|left|\n"
                                 "add_checkbox|checkbox_public|Allow anyone to Build and Break|{}\n"
                                 "add_checkbox|checkbox_disable_music|Disable Custom Music Blocks|{}\n"
                                 "add_text_input|tempo|Music BPM|100|3|\n"
@@ -542,7 +542,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                                 "add_button|changecat|`wCategory: None``|noflags|0|0|\n"
                                 "add_button|getKey|Get World Key|noflags|0|0|\n"
                                 "end_dialog|lock_edit|Cancel|OK|\n",
-                                item.raw_name, item.id, gamePacket.punch.x, gamePacket.punch.y, to_char(world->is_public), (world->lock_state & DISABLE_MUSIC) ? "1" : "0", world->minimum_entry_level
+                                item.raw_name, item.id, ::world_access_list_text(*world), gamePacket.punch.x, gamePacket.punch.y, to_char(world->is_public), (world->lock_state & DISABLE_MUSIC) ? "1" : "0", world->minimum_entry_level
                             )
                         });
                     }

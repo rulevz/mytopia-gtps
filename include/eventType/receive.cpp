@@ -42,6 +42,15 @@ void receive(ENetEvent& event)
             gamePacket.size = event.packet->dataLength - sizeof(::gamePacket); // @todo did i do this right? or check for flag ::EXTENDED
             if (g_verbose) printf("[enet] tank: type=0x%02x netid=%d size=%u\n", gamePacket.type, gamePacket.netid, gamePacket.size); // @note debug logging
 
+            // @note guard: reject out-of-bounds tile positions (punch is always tile
+            // coords; garbage values used to index blocks[] unchecked -> crash vector)
+            if (const float px = gamePacket.punch.x, py = gamePacket.punch.y;
+                px < 0.0f || px >= 100.0f || py < 0.0f || py >= 60.0f)
+            {
+                if (g_verbose) printf("[enet] tank: dropped out-of-bounds punch (%.1f,%.1f) type=0x%02x\n", px, py, gamePacket.type);
+                break;
+            }
+
             if (const auto i = gamePacket_pool.find(gamePacket.type); i != gamePacket_pool.end())
                 i->second(event, std::move(gamePacket));
             break;
