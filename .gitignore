@@ -13,3 +13,9 @@ mysql_login.txt
 
 # Zed - once i fully understand how use it i'll publish tasks.json and debug.json
 .zed/
+
+# local deployment secrets / runtime (GTPS fork)
+LOCAL-RUN.md
+resources/ctx/server.crt
+resources/ctx/server.key
+resources/ctx.bak/
