@@ -54,7 +54,7 @@ Text **action routing**:
 |--------------------------------|--------------------------|
 | `protocol` / `tankIDName`      | pipes[0] itself          |
 | `requestedName` (modern login) | routed to `tankIDName`   |
-| everything else                | `"pipes[0]|pipes[1]"` e.g. `action|enter_game` |
+| everything else                | `"pipes[0]\|pipes[1]"` e.g. `action\|enter_game` |
 
 Guards: needs >=2 pipes; **punch coords are validated to [0,100)x[0,60)** before
 dispatch (garbage punch values used to crash the server indexing `blocks[]`).
@@ -112,7 +112,7 @@ Serialize: `compress_state()` - writes the 15 fields; callers append payloads
 | 0x0f | PACKET_SEND_LOCK              | `tile_change.cpp` (lock visuals)                 |
 | 0x10 | PACKET_SEND_ITEM_DATABASE     | `items.cpp` (whole items.dat blob)               |
 | 0x11 | PACKET_SEND_PARTICLE_EFFECT   | `world.cpp`                                      |
-| 0x14 | PACKET_SET_CHARACTER_STATE    | `SetClothing.cpp` (`type = 0x14 | ((0x808000 + effect) << 8)`) |
+| 0x14 | PACKET_SET_CHARACTER_STATE    | `SetClothing.cpp` (`type = 0x14`, OR'd with `(0x808000 + effect) << 8`) |
 | 0x16 | PACKET_PING_REQUEST           | `enter_game.cpp`                                 |
 
 ## 6. Variant RPC - the Proton layer (`include/proton/`)
