@@ -58,9 +58,13 @@ client before the items parser is upgraded (see P2).
       panels; the status format was recovered by disassembling libgrowtopia.so:
       `OnTradeStatus(netid, captionA, captionB, data)` where netid selects the panel (own vs
       partner) and data = `add_slot|<itemID>|<count>` lines + `locked|`/`accepted|` flags.
-      Client msgs mod_trade/rem_trade/trade_accept/trade_lock/trade_cancel/trade_started/
-      trade_check_price handled + logged. Pending: item transfer on completion (stub),
-      reset_locks polish, leave/disconnect edge cases, trade_check_price reply
+      Tapping a stack now asks how many: `trade_item` dialog (same shape as the proven drop
+      dialog, count pre-filled with what the player holds, clamped server-side on return);
+      untradeable items (CAT_UNTRADEABLE, e.g. 9640 My First World Lock) are refused with
+      "You can't trade that.". Client msgs mod_trade/rem_trade/trade_accept/trade_lock/
+      trade_cancel/trade_started/trade_check_price handled + logged. Pending: item transfer
+      on completion (stub), reset_locks polish, leave/disconnect edge cases,
+      trade_check_price reply
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate
