@@ -47,23 +47,25 @@ namespace trade
         };
 
         /* @note temporary marker mode for panel mapping (GUROTOPIA_TRADE_MARKERS=1):
-           distinctly recognizable items in each channel + a unique caption, so the
-           player can report which channel renders where. Remove once pinned. */
+           the FIRST argument (netid) selects the target panel: partner-netid ->
+           partner panel (right side, 3rd arg = its caption), own-netid -> own panel
+           (2nd arg = its caption). Distinct items + captions so the player can
+           report where each channel renders. Remove once pinned. */
         if (std::getenv("GUROTOPIA_TRADE_MARKERS") != nullptr)
         {
             send_varlist(ep, {
                 "OnTradeStatus",
-                static_cast<signed>(partner.netid),
+                static_cast<signed>(p.netid),           // own netid -> own panel
+                "OWN-MARK-1",
                 "",
-                "",
-                "add_slot|2|2\nlocked|0\naccepted|0\n"          // channel A: dirt
+                "add_slot|2|2\nlocked|0\naccepted|0\n"          // dirt x2
             });
             send_varlist(ep, {
                 "OnTradeStatus",
-                static_cast<signed>(partner.netid),
+                static_cast<signed>(partner.netid),     // partner netid -> partner panel
                 " ",
-                "MARK-CAP-9",
-                "add_slot|9640|1\nlocked|0\naccepted|0\n"       // channel B: world lock
+                "PARTNER-MARK-2",
+                "add_slot|9640|1\nlocked|0\naccepted|0\n"       // world lock x1
             });
             return;
         }
