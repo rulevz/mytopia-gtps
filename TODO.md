@@ -73,10 +73,13 @@ client before the items parser is upgraded (see P2).
       offer change (anti-scam swap); an offer change under an accepted deal sends
       "The deal has changed." + the tile_removed SFX; a cancel tells the other side who
       walked away. Disconnect/leave ends an active trade before the peer object dies. COMPLETION
-      ANIMATION: after both accept the windows are held open ~3s (final OnTradeStatus with both
+      ANIMATION: after both accept the windows are held open ~4s (final OnTradeStatus with both
       sides accepted, input locked via peer_trade.close_at, then trade::sweep() in the main loop
       sends OnForceTradeEnd) so the client can play its own item-swap animation - the previous
-      immediate OnForceTradeEnd destroyed the window and cut that animation off. SFX on
+      immediate OnForceTradeEnd destroyed the window and cut that animation off. FINISH is
+      TWO-PHASE: +1s the offers are flushed from both panels (trade.flush_at -> sweep clears
+      trade.items + refresh; the slots visibly empty out, which is itself a rendered state
+      change), +4s the windows close. SFX on
       every event (play_sfx text action, names from the reference audio set): page_turn on
       the confirm dialog, use_lock on lock, bloop on confirmed accept, success on completion,
       dialog_cancel on cancel/leave, bleep_fail on refusals. ANTI-EXPLOIT HARDENING: new offer

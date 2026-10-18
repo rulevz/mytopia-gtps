@@ -361,19 +361,20 @@ namespace trade
             play_sfx_for(p, "success.wav");
             play_sfx_for(partner, "success.wav");
 
-            /* @note the client animates the item swap when it sees BOTH sides accepted -
-               keep the windows alive for a moment so that animation can play, then sweep()
-               force-closes them. Input is locked out while close_at is set. */
-            p.trade.close_at = ticks() + 3u;
+            /* @note the client animates the item swap when it sees BOTH sides accepted, and
+               the offers leaving the panels is a state change it renders (the render loop
+               eases item widgets toward their targets). Two-phase finish:
+                 1. now      : final status WITH the offers + both accepted (swap cue)
+                 2. +1s      : flush - empty offer panels (items "leave the slots")
+                 3. +4s      : sweep() force-closes the windows
+               Input stays locked throughout (close_at). */
+            p.trade.close_at = ticks() + 4u;
             partner.trade.close_at = p.trade.close_at;
+            p.trade.flush_at = ticks() + 1u;
+            partner.trade.flush_at = p.trade.flush_at;
             send_status(p);
             send_status(partner);
-
-            /* @note the offers have been paid out - drop them so no later code path can
-               ever pay them a second time (belt-and-braces against dupes) */
-            p.trade.items.clear();
-            partner.trade.items.clear();
-            printf("[trade] completed: items moved, closing windows in ~3s (animation window)\n");
+            printf("[trade] completed: items moved, offers flush in ~1s, windows close in ~4s\n");
             return;
         }
         refresh(p);
@@ -416,15 +417,30 @@ namespace trade
         p.trade = {};
     }
 
-    /* @note called every main-loop pass: force-close windows whose completion animation
-       window has elapsed (the first end() clears both sides; further hits are no-ops). */
+    /* @note called every main-loop pass: flush the offer panels once the completion
+       animation window starts (the items "leave the slots"), then force-close the windows
+       when the window elapses. The first end() clears both sides; further hits are no-ops. */
     void sweep()
     {
         for (ENetPeer *ep : peers())
         {
             ::peer *p = static_cast<::peer*>(ep->data);
-            if (p == nullptr || p->trade.close_at == 0) continue;
-            if (ticks() >= p->trade.close_at) end(*p, "completed", true);
+            if (p == nullptr) continue;
+
+            if (p->trade.flush_at != 0 && ticks() >= p->trade.flush_at)
+            {
+                p->trade.flush_at = 0;
+                if (p->trade.partner != nullptr)
+                {
+                    p->trade.partner->trade.flush_at = 0;
+                    p->trade.partner->trade.items.clear();
+                }
+                p->trade.items.clear(); // @note no re-payment path may ever see them again
+                refresh(*p);
+                printf("[trade] offers flushed from the panels (server says the slots are empty)\n");
+            }
+
+            if (p->trade.close_at != 0 && ticks() >= p->trade.close_at) end(*p, "completed", true);
         }
     }
 }

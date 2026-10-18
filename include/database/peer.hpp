@@ -154,6 +154,7 @@ public:
         bool locked{};
         u_int changed_at{}; // @note ticks() of the last offer change (accept is gated ~1s)
         u_int close_at{};   // @note nonzero = deal done (items moved): windows close at this tick (animation window)
+        u_int flush_at{};   // @note nonzero = empty the offer panels at this tick (items "leave" the slots)
         u_int ops{};        // @note trade ops inside the current window (flood guard)
         u_int ops_at{};     // @note ticks() when the flood-guard window started
         std::vector<::slot> items{}; // @note this peer's offer {itemID, count}
