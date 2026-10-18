@@ -43,6 +43,10 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
   Idle stander: logs in (UID, default 2) and stays in a world (WORLD, default
   TRADETEST) so another player — e.g. a phone through the capture proxy — has
   someone to wrench for trade captures. STAY seconds (default 1800).
+- `node sim_world_door_exit.js`
+  Regression for the world-lifecycle fix: B taps the main door (tank 0x07) + sends
+  quit_to_exit (the real double-exit) and rejoins — netid must not reset, visitors
+  must stay counted, A must see exactly one remove + B's new spawn.
 
 Notes:
 - `sim_protocol_login.js` registers/loads the account inside the ltoken payload

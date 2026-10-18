@@ -57,7 +57,20 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
 
         pPeer->rest_pos = world.spawn;
 
-        pPeer->netid = ++world.netid_counter;
+        /* @note assign a netid that no peer in this world claims - a recreated world
+           object (fresh counter) must never collide with peers lingering from an
+           older one (netid collisions break client-side avatars / make players invisible). */
+        for (;;)
+        {
+            pPeer->netid = ++world.netid_counter;
+            const bool taken = std::ranges::any_of(peers(), [&](ENetPeer *other)
+            {
+                ::peer *pOthers = static_cast<::peer*>(other->data);
+                return pOthers != nullptr && pOthers != pPeer && pOthers->netid == pPeer->netid &&
+                       pOthers->recent_worlds.back() == world.name;
+            });
+            if (!taken) break;
+        }
         peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&event, &pPeer, &world](ENetPeer& peer/*send to everyone in world*/) 
         {
             ::peer *pOthers = static_cast<::peer*>(peer.data); // @note everyone in world's peer.data

@@ -25,6 +25,12 @@ client before the items parser is upgraded (see P2).
 - [x] Daily backups: `scripts/backup.sh` (DB dump + items.dat + configs, keeps 14) + cron entry
 - [~] Robustness: MariaDB connection watchdog + auto-reconnect added (30s ping in main loop);
       86 source `@todo` markers triaged - biggest: tile_change (19), world (13), wrench (5)
+- [x] World lifecycle fixed: an exit can arrive twice (main door fires tile_activate ->
+      quit_to_exit, and the client also sends action|quit_to_exit) - the second call used to
+      underflow `visitors`, delete the world under remaining players and reset netids to 1
+      (colliding avatars -> players turned invisible). Now: idempotent exit guard, safe
+      visitor decrement, collision-free netid assignment (u_short counter); regression test
+      `tests/sim_world_door_exit.js` (6/6, also verified through the capture proxy)
 
 ## P1 - Gameplay content
 - [~] `@todo` sweep: duct-tape 10min expiry (main-loop watchdog), object stacking cap 200 +

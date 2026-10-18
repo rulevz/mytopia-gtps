@@ -8,6 +8,14 @@ void action::quit_to_exit(ENetEvent& event, const std::string& header, bool skip
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 
+    /* @note netid 0 == "not in a world" (join_request assigns a nonzero netid).
+       an exit can legitimately arrive twice: tapping the main door fires
+       tile_activate (-> this) AND the client also sends its own action|quit_to_exit.
+       the second call must not decrement visitors again - that used to underflow the
+       counter and delete the world under peers still in it, which reset netids
+       (colliding avatars / invisible players). */
+    if (pPeer->netid == 0) return;
+
     auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
     if (world == worlds.end()) return; // @note peer was not in a world, therefore nothing to exit from.
 
@@ -25,7 +33,8 @@ void action::quit_to_exit(ENetEvent& event, const std::string& header, bool skip
         send_varlist(&peer, { "OnRemove", netid, pId }); // @todo
     });
 
-    if (--world->visitors <= 0) worlds.erase(world); // @note take 1, and if result is 0, delete memory copy of world.
+    if (world->visitors > 0) --world->visitors;
+    if (world->visitors <= 0) worlds.erase(world); // @note erase only once truly empty
     pPeer->netid = 0; // this will fix any packets being sent outside of world; this can also be used to check if peer is not in a world.
 
     pPeer->display_growid = std::format("`w{}``", pPeer->growid);

@@ -156,7 +156,7 @@ public:
     u_char minimum_entry_level{1}; // @note minimal level required to enter a world
 
     u_char visitors{}; // @note the current number of peers in a world, excluding invisable peers
-    u_char netid_counter{}; // @note a number that only increases, this value resets during ~world()
+    u_short netid_counter{}; // @note a number that only increases, this value resets during ~world()
 
     std::vector<::block> blocks; // @note all blocks, size of 1D meaning (6000) instead of 2D (100, 60)
     u_int last_object_uid{0};
