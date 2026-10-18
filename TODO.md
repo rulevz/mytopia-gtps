@@ -71,6 +71,13 @@ client before the items parser is upgraded (see P2).
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate
       fix; verified by exact-EOF parse of real v5.59 (16434 items). Server boots both formats
 - [x] Version matrix + validation tool: docs/ITEMSDAT-FORMATS.md + tests/itemsdat_check.py
+- [x] items.dat delivery fixed — no more "updating items" on every login: logon now advertises
+      the rttex hash (`h=0x55555555; h=(h>>27)+(h<<5)+byte`, uint32 wrap) of the bytes we
+      ACTUALLY serve (computed at startup, after the .mp3-audio patch), and the refresh payload
+      is DEFLATE-compressed (5.70 -> 0.98 MB) as tank type 0x10 / netid -1 / S_EXTENDED, like
+      retail servers (GrowServer deflateSync / GTopia compressSize). `refresh_item_data` logs
+      who asks, so a settling client is visible server-side (one update round after a hash
+      change, then silence)
 - [~] Packet captures for unimplemented features (trade, redeem codes, clash, gacha...)
       via `tools/gtproxy/` (our own ENet relay - replaces the GTProxy/packet-reader
       idea): built + verified end-to-end (login/commands/punch relayed byte-identically;

@@ -66,6 +66,13 @@ Requires `items.dat`, `server_data.php`, `mysql_login.txt` in the working direct
 - `enet`: `GUROTOPIA_ENET_PORT` env override for the ENet bind port - the advertised
   port in `server_data.php` stays unchanged, so a capture proxy can own the public
   port (see "Packet capture" below)
+- `items`: logon advertises the rttex hash (`h=0x55555555; h=(h>>27)+(h<<5)+byte`,
+  uint32 wrap) of the bytes we actually serve, computed at startup after the .mp3-audio
+  patch - a stale hardcoded hash made every client re-request the item data on EVERY
+  login ("One moment, updating item data...")
+- `items`: the `refresh_item_data` payload is now DEFLATE-compressed (5.70 -> 0.98 MB)
+  with tank type 0x10 / netid -1 / S_EXTENDED, matching retail servers (a raw payload
+  never settled the client cache); the request is also logged per growid
 
 ## Packet capture (`tools/gtproxy`)
 
