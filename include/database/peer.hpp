@@ -144,6 +144,17 @@ public:
 
     u_short fires_removed{};
     u_short gbc_pity{}; // @note GBC pity; for each 100 will receive super GBC
+
+    /* @note trade state (capture-first, see include/automate/trade.cpp).
+       partner is a live pointer, cleared by trade::end() on cancel/complete/leave. */
+    struct peer_trade
+    {
+        ::peer *partner{};
+        bool accepted{};
+        bool locked{};
+        std::vector<::slot> items{}; // @note this peer's offer {itemID, count}
+    };
+    peer_trade trade{};
 };
 
 extern ENetHost* host;

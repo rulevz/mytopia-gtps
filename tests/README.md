@@ -35,6 +35,14 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
   Full login then sends one command/chat message
   (`GROWID=.. UID=.. CMD="/help" node sim_command.js`), prints every server reply —
   used to verify admin commands, role gates and moderation flows.
+- `node sim_trade_flow.js`
+  Two-client trade driver (uid 1 + 2, world TRADETEST): wrench → Trade button →
+  offer/lock/accept/complete, plus a cancel pass. Verifies the capture-first trade
+  implementation against itself (11 checks).
+- `node sim_stander.js`
+  Idle stander: logs in (UID, default 2) and stays in a world (WORLD, default
+  TRADETEST) so another player — e.g. a phone through the capture proxy — has
+  someone to wrench for trade captures. STAY seconds (default 1800).
 
 Notes:
 - `sim_protocol_login.js` registers/loads the account inside the ltoken payload

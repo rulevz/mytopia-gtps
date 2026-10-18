@@ -4,12 +4,16 @@
 
 void action::wrench(ENetEvent& event, const std::string& header) 
 {
-    std::vector<std::string> pipes = readch(header, '|');
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+    ::hPipe hPipe{ header };
 
-    if ((pipes[3ull] == "netid" && !pipes[4ull].empty()/*empty netid*/))
+    /* @note the wrench target arrives as a `netid|<n>` pair. the client's exact
+       position/order varies, so scan for the pair instead of a fixed index. */
+    std::string netid_s = hPipe["netid"];
+    if (netid_s.empty()) netid_s = hPipe["netID"];
+    if (!netid_s.empty())
     {
-        const short netid = atoi(pipes[4ull].c_str());
+        const short netid = static_cast<short>(atoi(netid_s.c_str()));
         peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [event, pPeer, netid](ENetPeer& peer) 
         {
             ::peer *pOthers = static_cast<::peer*>(peer.data);

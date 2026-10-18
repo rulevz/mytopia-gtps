@@ -98,6 +98,35 @@ Quick look:
         if x.get("kind") == "text": print(x["dir"], x["detail"][:300])
     EOF
 
+## Trade capture session (phone)
+
+The server has a capture-first trade implementation (wrench → Trade → offer / lock /
+accept; see include/automate/trade.cpp), so a real client can open and drive the
+trade UI while gtproxy records everything.
+
+    # 1) server binds 17092, proxy owns the advertised 17091
+    GUROTOPIA_ENET_PORT=17092 ~/opt/gtps-restart.sh
+    tmux new-session -d -s gtproxy "cd \$HOME/projects/Gurotopia && tools/gtproxy/gtproxy \
+        --listen 17091 --backend 127.0.0.1:17092 --log-dir tools/gtproxy/captures"
+
+    # 2) a stander in TRADETEST (uid 2) so the phone has someone to wrench
+    cd tests
+    NODE_PATH=<dir with growtopia.wasm> UID=2 WORLD=TRADETEST STAY=1800 node sim_stander.js
+
+    # 3) on the phone: login -> TRADETEST -> wrench the stander -> Trade ->
+    #    drag items / lock / accept / cancel. Watch live:
+    tmux attach -t gtproxy
+
+    # 4) restore normal operation
+    tmux kill-session -t gtproxy ; ~/opt/gtps-restart.sh
+
+What to hunt in the captures: the client's REAL trade messages (names + payloads —
+the server currently guesses `mod_trade` / `rem_trade` / `trade_accept` /
+`trade_lock` / `trade_cancel` / `trade_started`) and whether the OnStartTrade /
+OnTradeStatus args match (which panel the item data fills, what the client sends
+back on button presses). Server-side `[trade] ...` logs appear in the gtps:server
+pane. Local dress rehearsal (no phone): `node sim_trade_flow.js` through the proxy.
+
 ## Limits / next steps
 
 - HTTPS is not proxied (ENet captures are the goal; the login-size quirk is

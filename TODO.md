@@ -41,7 +41,12 @@ client before the items parser is upgraded (see P2).
 - [~] Store/economy: gems persisted (starter 1000 + /setgems), store tabs & purchases verified
       (E4: World Lock purchase deducts & persists); real-money IAP packs still stubbed
 - [ ] Verify item rendering with the served items.dat (0x1a) on 5.57
-- [ ] Trade system (packets exist in the retail protocol - needs RE/capture work)
+- [~] Trade system: capture-first implementation live — wrench→Trade → `OnStartTrade` /
+      `OnTradeStatus` / `OnForceTradeEnd` (formats from community RE, keichira/GTopia);
+      client msgs mod_trade/rem_trade/trade_accept/trade_lock/trade_cancel handled +
+      logged; `tests/sim_trade_flow.js` 11/11 + `tests/sim_stander.js` for phone
+      sessions. Pending: validate formats vs a real 5.57 client (gtproxy capture),
+      item transfer on completion (currently stub), leave/disconnect edge polish
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate

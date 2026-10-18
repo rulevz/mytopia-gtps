@@ -1,5 +1,8 @@
 #include "pch.hpp"
 
+#include "onVariant/ConsoleMessage.hpp"
+#include "automate/trade.hpp"
+
 #include "popup.hpp"
 
 void popup(ENetEvent& event, const ::hPipe &hPipe)
@@ -71,5 +74,30 @@ void popup(ENetEvent& event, const ::hPipe &hPipe)
     else if (hPipe["buttonClicked"] == "seed_diary_customization")
     {
         send_varlist(event.peer, { "OnDialogRequestRML", "show_seed_diary_ui" });
+    }
+    else if (hPipe["buttonClicked"] == "trade")
+    {
+        /* @note player wrench dialog -> Trade button */
+        std::string netid_s = hPipe["netID"];
+        if (netid_s.empty()) netid_s = hPipe["netid"];
+        if (netid_s.empty() || pPeer->netid == 0) return; // @note not in a world / no target in dialog
+
+        try
+        {
+            const short netid = static_cast<short>(std::stoi(netid_s));
+            bool found = false;
+            peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer &other)
+            {
+                if (found) return;
+                ::peer *pOther = static_cast<::peer*>(other.data);
+                if (pOther != nullptr && pOther->netid == netid && pOther->user_id != pPeer->user_id)
+                {
+                    trade::start(*pPeer, *pOther);
+                    found = true;
+                }
+            });
+            if (!found) on::ConsoleMessage(event.peer, "`4That person is not here anymore.``");
+        }
+        catch (...) { printf("[trade] popup: unparsable netID\n"); }
     }
 }
