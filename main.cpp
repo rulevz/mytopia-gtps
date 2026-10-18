@@ -8,6 +8,7 @@
 #include "include/database/shouhin.hpp" // @note init_shouhin_tachi()
 #include "include/https/https.hpp" // @note https::listener()
 #include "include/https/server_data.hpp" // @note gServer_data
+#include "include/automate/trade.hpp" // @note trade::sweep (completion animation window)
 #include "include/database/database_config.hpp" // @note load_database_config(), gDatabase_config
 #include "include/automate/holiday.hpp" // @note holiday
 #include "include/automate/chat_filter.hpp" // @note parse_chat_filter()
@@ -71,6 +72,9 @@ int main(int argc, char **argv)
         while (enet_host_service(host, &event, 1000/*ms*/) > 0)
             if (const auto i = eventType_pool.find(event.type); i != eventType_pool.end())
                 i->second(event);
+
+        // @note every loop: close trades whose completion animation window has passed
+        trade::sweep();
 
         // @note every ~5min: autosave all in-memory worlds (crash safety)
         if (std::chrono::steady_clock::now() > world_save_at)

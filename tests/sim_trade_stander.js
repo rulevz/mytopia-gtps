@@ -96,9 +96,10 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   await wait(800);
   check("accept asks for confirmation", A.replies.some((r) => r.includes("end_dialog|trade_accept")));
   A.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
-  await wait(6000);
-  check("trade completed (A got OnForceTradeEnd)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
+  await wait(5200); // @note the bot sees our accept and accepts ~3.5s later
   check("A told the trade completed", A.replies.some((r) => r.includes("Trade completed")));
+  await wait(3800); // @note then the windows stay open ~3s so the client can animate the swap
+  check("trade completed (A got OnForceTradeEnd)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
 
   const failed = checks.filter(([, ok]) => !ok).length;
   console.log(`RESULT: ${checks.length - failed}/${checks.length} checks passed, packets A=${A.replies.length}`);

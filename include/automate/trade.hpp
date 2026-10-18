@@ -32,4 +32,7 @@ namespace trade
     /* kill the trade; the other side always gets OnForceTradeEnd.
        also_self: send it to p as well (used on completion). */
     void end(::peer &p, const char *reason, bool also_self);
+
+    /* main-loop sweep: force-close trades whose completion animation window has passed */
+    void sweep();
 }

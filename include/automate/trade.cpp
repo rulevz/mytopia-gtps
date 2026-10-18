@@ -142,6 +142,7 @@ namespace trade
     void add_item(::peer &p, int itemID, int count)
     {
         if (p.trade.partner == nullptr) return;
+        if (p.trade.close_at != 0) return; // @note deal already done - closing animation window
         if (itemID <= 0) return;
 
         const ::item &item = id_to_item(itemID);
@@ -181,6 +182,7 @@ namespace trade
     void remove_item(::peer &p, int itemID)
     {
         if (p.trade.partner == nullptr) return;
+        if (p.trade.close_at != 0) return; // @note deal already done
 
         std::erase_if(p.trade.items, [itemID](const ::slot &s) { return s.id == itemID; });
 
@@ -278,6 +280,7 @@ namespace trade
     void set_accept(::peer &p, bool accepted)
     {
         if (p.trade.partner == nullptr) return;
+        if (p.trade.close_at != 0) return; // @note deal already done - input locked out
 
         ::peer &partner = *p.trade.partner;
 
@@ -323,7 +326,15 @@ namespace trade
             if (eb != nullptr) on::ConsoleMessage(eb, "`2Trade completed!``");
             play_sfx_for(p, "success.wav");
             play_sfx_for(partner, "success.wav");
-            end(p, "completed", true);
+
+            /* @note the client animates the item swap when it sees BOTH sides accepted -
+               keep the windows alive for a moment so that animation can play, then sweep()
+               force-closes them. Input is locked out while close_at is set. */
+            p.trade.close_at = ticks() + 3u;
+            partner.trade.close_at = p.trade.close_at;
+            send_status(p);
+            send_status(partner);
+            printf("[trade] completed: items moved, closing windows in ~3s (animation window)\n");
             return;
         }
         refresh(p);
@@ -332,6 +343,7 @@ namespace trade
     void set_lock(::peer &p, bool locked)
     {
         if (p.trade.partner == nullptr) return;
+        if (p.trade.close_at != 0) return; // @note deal already done
 
         p.trade.locked = locked;
         printf("[trade] %s locked=%d\n", p.growid.c_str(), locked);
@@ -362,5 +374,17 @@ namespace trade
 
         partner.trade = {};
         p.trade = {};
+    }
+
+    /* @note called every main-loop pass: force-close windows whose completion animation
+       window has elapsed (the first end() clears both sides; further hits are no-ops). */
+    void sweep()
+    {
+        for (ENetPeer *ep : peers())
+        {
+            ::peer *p = static_cast<::peer*>(ep->data);
+            if (p == nullptr || p->trade.close_at == 0) continue;
+            if (ticks() >= p->trade.close_at) end(*p, "completed", true);
+        }
     }
 }

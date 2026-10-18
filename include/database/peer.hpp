@@ -153,6 +153,7 @@ public:
         bool accepted{};
         bool locked{};
         u_int changed_at{}; // @note ticks() of the last offer change (accept is gated ~1s)
+        u_int close_at{};   // @note nonzero = deal done (items moved): windows close at this tick (animation window)
         std::vector<::slot> items{}; // @note this peer's offer {itemID, count}
     };
     peer_trade trade{};

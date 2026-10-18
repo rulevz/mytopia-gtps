@@ -144,11 +144,14 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   await wait(700);
   check("B asked for confirmation too", B.replies.some((r) => r.includes("end_dialog|trade_accept")));
   B.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
-  await wait(900);
-  check("A got OnForceTradeEnd (completion)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
-  check("B got OnForceTradeEnd (completion)", B.replies.some((r) => r.includes("OnForceTradeEnd")));
+  await wait(1200);
+  check("mutual-accepted status pushed (animation cue)",
+    A.replies.some((r) => r.includes("'s offer") && r.includes("accepted|1")));
   check("A told the trade completed", A.replies.some((r) => r.includes("Trade completed")));
   check("completion sfx played", A.replies.some((r) => r.includes("play_sfx") && r.includes("success.wav")));
+  await wait(3200); // @note windows stay open ~3s so the client can animate the swap
+  check("A got OnForceTradeEnd (completion)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
+  check("B got OnForceTradeEnd (completion)", B.replies.some((r) => r.includes("OnForceTradeEnd")));
 
   // --- trade #2: cancel path ---
   console.log("[A] start trade again, then cancel");
