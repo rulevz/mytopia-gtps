@@ -148,6 +148,7 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   check("A got OnForceTradeEnd (completion)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
   check("B got OnForceTradeEnd (completion)", B.replies.some((r) => r.includes("OnForceTradeEnd")));
   check("A told the trade completed", A.replies.some((r) => r.includes("Trade completed")));
+  check("completion sfx played", A.replies.some((r) => r.includes("play_sfx") && r.includes("success.wav")));
 
   // --- trade #2: cancel path ---
   console.log("[A] start trade again, then cancel");

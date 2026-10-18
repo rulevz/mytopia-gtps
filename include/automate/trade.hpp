@@ -22,6 +22,9 @@ namespace trade
     void set_accept(::peer &p, bool accepted);
     void set_lock(::peer &p, bool locked);
 
+    /* play audio/<name> to one peer (no-op if that peer is gone) */
+    void play_sfx_for(::peer &p, const char *name);
+
     /* push the current trade state to this peer (single view) / both sides */
     void send_status(::peer &p);
     void refresh(::peer &p);

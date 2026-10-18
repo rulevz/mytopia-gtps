@@ -22,6 +22,7 @@ void action::mod_trade(ENetEvent& event, const std::string& header)
         if (item.cat & CAT_UNTRADEABLE)
         {
             send_varlist(event.peer, { "OnTextOverlay", "You can't trade that." });
+            trade::play_sfx_for(*pPeer, "bleep_fail.wav");
             return;
         }
 
@@ -84,14 +85,28 @@ void action::trade_accept(ENetEvent& event, const std::string& header)
        The client answers dialog_return -> dialog_name|trade_accept (+ buttonClicked). */
     const ::peer &partner = *pPeer->trade.partner;
 
+    /* one visual row per offered stack: the real item icon with a count badge
+       (add_button_with_icon is the documented modern shape). Row ids start with item_ so the
+       dialog_return handler can tell them apart from the confirmation buttons. */
     auto rows_of = [](const ::peer &who)
     {
         std::string rows{};
         for (const ::slot &slot : who.trade.items)
-            rows += std::format("add_label_with_icon|small|`w{}`` `ox{}``|left|{}|\n",
-                                id_to_item(slot.id).raw_name, slot.count, slot.id);
+        {
+            const ::item &item = id_to_item(slot.id);
+            rows += std::format("add_button_with_icon|item_{}|`w{}`` `ox{}`8 rarity {}``|left|{}|{}|\n",
+                                slot.id, item.raw_name, slot.count, item.rarity, slot.id, slot.count);
+        }
         if (rows.empty()) rows = "add_smalltext|`8- nothing offered -``|left|\n";
         return rows;
+    };
+
+    /* header rows: name + level + xp for both traders (modern add_player_info widget) */
+    auto info_of = [](const ::peer &who)
+    {
+        const int lvl = (who.level.size() >= 2) ? static_cast<int>(who.level.front()) : 1;
+        const int xp  = (who.level.size() >= 2) ? static_cast<int>(who.level.back()) : 0;
+        return std::tuple{ std::string{who.growid}, lvl, xp, 50 * (lvl * lvl + 2) };
     };
 
     auto stack_note = [](const ::peer &who)
@@ -108,6 +123,9 @@ void action::trade_accept(ENetEvent& event, const std::string& header)
             "add_label_with_icon|big|`wAccept this trade?``|left|9640|\n"
             "add_smalltext|`oDeal between `w{}`` and `w{}`` - review both sides before it becomes final.``|left|\n"
             "add_custom_break|\n"
+            "add_player_info|{}|{}|{}|{}|\n"
+            "add_player_info|{}|{}|{}|{}|\n"
+            "add_custom_break|\n"
             "add_textbox|`2You give:`` `8{}``|left|\n"
             "{}"
             "add_spacer|small|\n"
@@ -118,10 +136,13 @@ void action::trade_accept(ENetEvent& event, const std::string& header)
             "add_smalltext|`5Tip: tap Lock first if you need a moment to double-check.``|left|\n"
             "end_dialog|trade_accept|Cancel|Accept Trade|\n",
             pPeer->growid, partner.growid,
+            std::get<0>(info_of(*pPeer)), std::get<1>(info_of(*pPeer)), std::get<2>(info_of(*pPeer)), std::get<3>(info_of(*pPeer)),
+            std::get<0>(info_of(partner)), std::get<1>(info_of(partner)), std::get<2>(info_of(partner)), std::get<3>(info_of(partner)),
             stack_note(*pPeer), rows_of(*pPeer),
             stack_note(partner), rows_of(partner)
         )
     });
+    trade::play_sfx_for(*pPeer, "page_turn.wav");
     printf("[trade] %s tapped accept - confirmation dialog sent\n", pPeer->growid.c_str());
 }
 

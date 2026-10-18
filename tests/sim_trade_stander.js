@@ -85,6 +85,7 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   A.send("action|dialog_return\ndialog_name|trade_item\nitemID|1050\ncount|2\n");
   await wait(900);
   check("A's own offer shows add_slot|1050|2", A.replies.some((r) => r.includes("add_slot|1050|2")));
+  await wait(2000); // @note the bot tops itself up and offers ~3s after OnStartTrade
   check("stander offered 1050 x5 by itself", A.replies.some((r) => r.includes("add_slot|1050|5")));
 
   await wait(1200); // @note the server gates accept for ~1s after an offer change

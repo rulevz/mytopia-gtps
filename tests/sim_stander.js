@@ -94,13 +94,14 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
           console.log(">> auto-accepted the trade");
         }, 3500);
       }
-      // put a stack on the table too, so phone trades actually receive something
-      // (the account is seeded with 1050 x5 - see the [trade] test notes)
+      // put a stack on the table too, so phone trades actually receive something.
+      // tops itself up first (tester is DEVELOPER) - the stock drains ~3 per trade.
       if (s.includes("OnStartTrade")) {
         sentAccept = false; answeredDialog = false; answeredConfirm = false; // fresh trade, fresh flags
         setTimeout(() => {
-          console.log(">> offering 1050 x5");
-          textPacket(peer, "action|mod_trade\nitemID|1050\n");
+          console.log(">> topping up + offering 1050 x5");
+          textPacket(peer, "action|input\ntext|/give 1050 5\n");
+          setTimeout(() => textPacket(peer, "action|mod_trade\nitemID|1050\n"), 600);
         }, 1500);
       }
       // the server asks for confirmation when we tap accept - answer it

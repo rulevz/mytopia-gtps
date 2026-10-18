@@ -72,9 +72,15 @@ client before the items parser is upgraded (see P2).
       a refusal tells BOTH players why and moves nothing; accepting is gated ~1s after an
       offer change (anti-scam swap); an offer change under an accepted deal sends
       "The deal has changed." + the tile_removed SFX; a cancel tells the other side who
-      walked away. Disconnect/leave ends an active trade before the peer object dies.
-      Leftovers (non-blocking): `reset_locks|1` (retail servers never send it either) and
-      `trade_check_price` (no reference reply exists — logged only)
+      walked away. Disconnect/leave ends an active trade before the peer object dies. SFX on
+      every event (play_sfx text action, names from the reference audio set): page_turn on
+      the confirm dialog, use_lock on lock, bloop on confirmed accept, success on completion,
+      dialog_cancel on cancel/leave, bleep_fail on refusals. The confirm dialog shows one
+      visual row per offered stack (add_button_with_icon with the real item icon + count
+      badge + rarity; ids item_<id> are ignored by the handler so a stray tap can't confirm)
+      plus add_player_info header rows (name/level/xp). Leftovers (non-blocking):
+      `reset_locks|1` (retail servers never send it either) and `trade_check_price` (no
+      reference reply exists — logged only)
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate

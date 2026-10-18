@@ -18,6 +18,15 @@ namespace trade
 
     static void notify_deal_changed(::peer &who); // @note defined below (offer-change UX)
 
+    /* @note sound names come from the server-side reference set (GTopia/GrowServer), so the
+       client is guaranteed to have the file; play_sfx is a plain text action. */
+    void play_sfx_for(::peer &p, const char *name)
+    {
+        ENetPeer *ep = peer_of(p);
+        if (ep == nullptr) return;
+        send_action(*ep, "play_sfx", std::format("file|audio/{}\ndelayMS|-1\n", name));
+    }
+
     void send_status(::peer &p)
     {
         if (p.trade.partner == nullptr) return;
@@ -139,6 +148,7 @@ namespace trade
         if (item.cat & CAT_UNTRADEABLE)
         {
             printf("[trade] %s tried to offer untradeable item %d\n", p.growid.c_str(), itemID);
+            play_sfx_for(p, "bleep_fail.wav");
             return;
         }
 
@@ -230,7 +240,7 @@ namespace trade
         ENetPeer *ep = peer_of(who);
         if (ep == nullptr) return;
         send_varlist(ep, { "OnTextOverlay", "The deal has changed." });
-        send_action(*ep, "play_sfx", "file|audio/tile_removed.wav\ndelayMS|-1\n");
+        play_sfx_for(who, "tile_removed.wav");
     }
 
     /* accept-time validation (mirrors keichira/GTopia PlayerTrade::CheckTradingItemsAndGetError):
@@ -296,6 +306,8 @@ namespace trade
                 ENetPeer *eb = peer_of(partner);
                 if (ea != nullptr) send_varlist(ea, { "OnTextOverlay", reason });
                 if (eb != nullptr) send_varlist(eb, { "OnTextOverlay", reason });
+                play_sfx_for(p, "bleep_fail.wav");
+                play_sfx_for(partner, "bleep_fail.wav");
                 p.trade.accepted = false;
                 printf("[trade] completion refused: %s\n", reason.c_str());
                 refresh(p);
@@ -309,6 +321,8 @@ namespace trade
             ENetPeer *eb = peer_of(partner);
             if (ea != nullptr) on::ConsoleMessage(ea, "`2Trade completed!``");
             if (eb != nullptr) on::ConsoleMessage(eb, "`2Trade completed!``");
+            play_sfx_for(p, "success.wav");
+            play_sfx_for(partner, "success.wav");
             end(p, "completed", true);
             return;
         }
@@ -321,6 +335,7 @@ namespace trade
 
         p.trade.locked = locked;
         printf("[trade] %s locked=%d\n", p.growid.c_str(), locked);
+        play_sfx_for(p, "use_lock.wav");
         refresh(p);
     }
 
@@ -336,6 +351,11 @@ namespace trade
         /* @note the side watching gets told who walked away (retail behaviour) */
         if (std::string_view(reason) == "cancel" && eb != nullptr)
             send_varlist(eb, { "OnTextOverlay", std::format("{} has canceled the trade", p.growid) });
+        if (std::string_view(reason) != "completed")
+        {
+            play_sfx_for(p, "dialog_cancel.wav");
+            play_sfx_for(partner, "dialog_cancel.wav");
+        }
 
         if (also_self && ea != nullptr) send_varlist(ea, { "OnForceTradeEnd" });
         if (eb != nullptr) send_varlist(eb, { "OnForceTradeEnd" });

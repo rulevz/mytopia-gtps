@@ -54,9 +54,9 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
 - `node sim_stander.js`
   Idle stander bot: logs in (UID, default 2) and stays in a world (WORLD, default
   TRADETEST) so another player — e.g. a phone through the capture proxy — has
-  someone to wrench. On trade start it offers its own 1050 x5 (the account is
-  seeded with that stack) and auto-accepts ~3.5s after the partner accepts. STAY
-  seconds (default 1800).
+  someone to wrench. On trade start it tops itself up with `/give 1050 5` and
+  offers 1050 x5 (the tester account is DEVELOPER for this), then auto-accepts
+  ~3.5s after the partner accepts. STAY seconds (default 1800).
 - `node sim_world_door_exit.js`
   Regression for the world-lifecycle fix: B taps the main door (tank 0x07) + sends
   quit_to_exit (the real double-exit) and rejoins — netid must not reset, visitors

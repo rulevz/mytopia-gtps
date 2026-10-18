@@ -9,13 +9,23 @@ void trade_accept(ENetEvent& event, const ::hPipe &hPipe)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
 
-    /* any button that is not a confirmation means the player backed out */
     const std::string &clicked = hPipe["buttonClicked"];
-    if (clicked == "Cancel" || clicked == "No" || clicked == "Close")
+
+    /* the offer rows are buttons too (icon + count badge) - tapping one must never confirm */
+    if (clicked.starts_with("item_"))
     {
-        printf("[trade] %s backed out of the accept confirmation\n", pPeer->growid.c_str());
+        printf("[trade] %s tapped an offer row (%s) - not a confirmation\n", pPeer->growid.c_str(), clicked.c_str());
         return;
     }
 
+    /* any other non-confirmation button means the player backed out */
+    if (clicked == "Cancel" || clicked == "No" || clicked == "Close")
+    {
+        printf("[trade] %s backed out of the accept confirmation\n", pPeer->growid.c_str());
+        trade::play_sfx_for(*pPeer, "dialog_cancel.wav");
+        return;
+    }
+
+    trade::play_sfx_for(*pPeer, "bloop.wav");
     trade::set_accept(*pPeer, true);
 }
