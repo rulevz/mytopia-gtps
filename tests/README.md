@@ -37,12 +37,19 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
   used to verify admin commands, role gates and moderation flows.
 - `node sim_trade_flow.js`
   Two-client trade driver (uid 1 + 2, world TRADETEST): wrench → Trade button →
-  offer/lock/accept/complete, plus a cancel pass. Verifies the capture-first trade
-  implementation against itself (11 checks).
+  quantity dialog → offer/removal → re-offer → lock/accept/complete (with item
+  transfer) plus a cancel pass — 16 checks, against the capture proxy by default.
+- `node sim_trade_stander.js`
+  The phone flow against the LIVE stander bot: joins the stander's world, wrenches
+  it, checks that the stander puts its own 1050 x5 on the table and auto-accepts,
+  and that the trade completes — 7 checks. Use a world the bot can enter (a locked
+  world refuses role-PLAYER peers with OnFailedToEnterWorld).
 - `node sim_stander.js`
-  Idle stander: logs in (UID, default 2) and stays in a world (WORLD, default
+  Idle stander bot: logs in (UID, default 2) and stays in a world (WORLD, default
   TRADETEST) so another player — e.g. a phone through the capture proxy — has
-  someone to wrench for trade captures. STAY seconds (default 1800).
+  someone to wrench. On trade start it offers its own 1050 x5 (the account is
+  seeded with that stack) and auto-accepts ~3.5s after the partner accepts. STAY
+  seconds (default 1800).
 - `node sim_world_door_exit.js`
   Regression for the world-lifecycle fix: B taps the main door (tank 0x07) + sends
   quit_to_exit (the real double-exit) and rejoins — netid must not reset, visitors

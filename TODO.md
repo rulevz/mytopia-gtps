@@ -61,10 +61,11 @@ client before the items parser is upgraded (see P2).
       Tapping a stack now asks how many: `trade_item` dialog (same shape as the proven drop
       dialog, count pre-filled with what the player holds, clamped server-side on return);
       untradeable items (CAT_UNTRADEABLE, e.g. 9640 My First World Lock) are refused with
-      "You can't trade that.". Client msgs mod_trade/rem_trade/trade_accept/trade_lock/
-      trade_cancel/trade_started/trade_check_price handled + logged. Pending: item transfer
-      on completion (stub), reset_locks polish, leave/disconnect edge cases,
-      trade_check_price reply
+      "You can't trade that.". COMPLETION MOVES ITEMS: on dual-accept the offered stacks are
+      debited/credited between the two backpacks (clamped to what is still held + the
+      200-per-entry cap), verified end-to-end through the proxy and persisted in the DB
+      (uid 1: 22 -2 +5 = 25). Disconnect/leave ends an active trade before the peer object
+      dies. Pending: reset_locks polish, trade_check_price reply, backpack-full UX
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate
