@@ -44,6 +44,7 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
 
   let sawNetId = false;
   let announced = false;
+  let sentAccept = false;
 
   client.emitter.on("connect", (peer) => {
     const parts = [
@@ -80,6 +81,16 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
           tankPacket(peer, 0x00, 0, px, py, -1, -1, 0x04);
           console.log(">> position announced at", (parseInt(m[2], 10) + 1) + "," + m[3]);
         }, 600);
+      }
+      // auto-accept trades: when the partner's offer panel shows they accepted,
+      // accept back after a short delay so the full trade cycle can complete
+      if (!sentAccept && s.includes("'s offer") && s.includes("accepted|1")) {
+        sentAccept = true;
+        console.log(">> partner accepted - accepting back in 3.5s");
+        setTimeout(() => {
+          textPacket(peer, "action|trade_accept\nstatus|1\n");
+          console.log(">> auto-accepted the trade");
+        }, 3500);
       }
     } catch (e) {}
   });

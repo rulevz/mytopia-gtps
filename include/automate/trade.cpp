@@ -70,20 +70,20 @@ namespace trade
             return;
         }
 
-        /* own panel: empty 2nd arg -> the recipient's own offer */
+        /* own panel: netid = the recipient's own -> own panel (2nd arg = its caption) */
         send_varlist(ep, {
             "OnTradeStatus",
-            static_cast<signed>(partner.netid),
-            "",
+            static_cast<signed>(p.netid),
+            "Your offer.``",
             "",
             build(p)
         });
 
-        /* partner panel: non-empty 2nd arg -> the partner's offer (+ caption) */
+        /* partner panel: netid = the partner's -> partner panel (3rd arg = its caption) */
         send_varlist(ep, {
             "OnTradeStatus",
             static_cast<signed>(partner.netid),
-            " ",
+            "",
             std::format("{}'s offer.``", partner.growid),
             build(partner)
         });
