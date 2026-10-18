@@ -161,8 +161,27 @@ void https::listener()
                 while (line_end < rbytes && buf[line_end] != '\r' && buf[line_end] != '\n') ++line_end;
                 if (g_verbose) printf("[https] request bytes: %d | %s | %.*s\n", rbytes, peer_ip, line_end, buf);
 
-                int wbytes = SSL_write(ssl, response.c_str(), response.size());
-                if (wbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
+                /* @note item database download: the logon varlist points the client's CDN at
+                   us, so the request for items.dat must return the EXACT bytes we hash and
+                   advertise (items_dat_raw) - otherwise the client keeps re-updating. */
+                const std::string request_line(buf, buf + line_end);
+                if (request_line.find("items.dat") != std::string::npos && !items_dat_raw.empty())
+                {
+                    const std::string header = std::format(
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: application/octet-stream\r\n"
+                        "Content-Length: {}\r\n"
+                        "Connection: close\r\n\r\n",
+                        items_dat_raw.size());
+                    printf("[https] served items.dat (%zu bytes, hash %u) to %s\n", items_dat_raw.size(), items_dat_hash, peer_ip);
+                    if (SSL_write(ssl, header.c_str(), static_cast<int>(header.size())) > 0)
+                        SSL_write(ssl, items_dat_raw.data(), static_cast<int>(items_dat_raw.size()));
+                }
+                else
+                {
+                    int wbytes = SSL_write(ssl, response.c_str(), response.size());
+                    if (wbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
+                }
             }
         }
 

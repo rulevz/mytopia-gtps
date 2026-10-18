@@ -1,5 +1,7 @@
 #include "pch.hpp"
 #include "automate/holiday.hpp"
+#include "database/items.hpp"
+#include "https/server_data.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 
 #include "tankIDName.hpp"
@@ -63,7 +65,7 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
     send_varlist(event.peer, {
         "OnSuperMainStartAcceptLogonHrdxs47254722215a",
         static_cast<signed>(items_dat_hash), // @note items.dat: rttex hash of the file we serve (items.cpp)
-        "ubistatic-a.akamaihd.net",
+        gServer_data.server, // @note CDN = ourselves: the client fetches items.dat from our HTTPS listener
         "0098/024920264/cache/",
         "cc.cz.madkite.freedom org.aqua.gg idv.aqua.bulldog com.cih.gamecih2 com.cih.gamecih com.cih.game_cih cn.maocai.gamekiller com.gmd.speedtime org.dax.attack com.x0.strai.frep com.x0.strai.free org.cheatengine.cegui org.sbtools.gamehack com.skgames.traffikrider org.sbtoods.gamehaca com.skype.ralder org.cheatengine.cegui.xx.multi1458919170111 com.prohiro.macro me.autotouch.autotouch com.cygery.repetitouch.free com.cygery.repetitouch.pro com.proziro.zacro com.slash.gamebuster",
         std::format(

@@ -199,4 +199,6 @@ extern std::vector<u_char> im_data;
 
 extern u_int items_dat_hash; // @note rttex hash of the RAW items.dat, advertised at logon
 
+extern std::vector<u_char> items_dat_raw; // @note bytes served for the client's item-database download
+
 extern void decode_items();

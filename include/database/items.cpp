@@ -19,6 +19,8 @@ std::vector<u_char> im_data(sizeof(::gamePacket)/*inital packet*/, 0x00);
 
 u_int items_dat_hash{}; // @note rttex hash of the RAW items.dat (advertised at logon)
 
+std::vector<u_char> items_dat_raw{}; // @note the exact bytes the client downloads (HTTPS route + hash source)
+
 /* Growtopia's file hash (rttex/cache validation): h = 0x55555555;
    for every byte: h = (h >> 27) + (h << 5) + byte, with uint32 wrap-around. */
 static u_int rttex_hash(const u_char *data, std::size_t size) noexcept
@@ -228,6 +230,7 @@ void decode_items()
        advertise at logon must be the hash of the RAW file: otherwise the client believes
        its cached copy is stale and asks to "update items" on every single login. */
     items_dat_hash = rttex_hash(im_data.data(), im_data.size());
+    items_dat_raw = im_data; // @note the CDN/HTTPS route hands out exactly these bytes
 
     uLongf compressed_size = compressBound(size);
     std::vector<u_char> compressed(compressed_size);
