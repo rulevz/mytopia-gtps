@@ -9,8 +9,8 @@ const { init, NodeENetClient, Packet, PacketKind } = require("growtopia.wasm");
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = parseInt(process.env.PORT || "17091", 10);
 const WORLD = process.env.WORLD || "TRADETEST";
-const UIDA = parseInt(process.env.UIDA || "1", 10);
-const UIDB = parseInt(process.env.UIDB || "2", 10);
+const UIDA = parseInt(process.env.UIDA || "3", 10);
+const UIDB = parseInt(process.env.UIDB || "4", 10);
 
 function textPacket(peer, text) {
   const payload = Buffer.concat([Buffer.from([0x02, 0, 0, 0]), Buffer.from(text, "utf8"), Buffer.from([0])]);

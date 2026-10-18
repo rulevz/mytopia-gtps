@@ -18,6 +18,22 @@ namespace trade
 
     static void notify_deal_changed(::peer &who); // @note defined below (offer-change UX)
 
+    /* @note flood guard: a legitimate client sends one trade op per tap; more than ~12 in a
+       second is a scripted flood (packet amplification: every op re-broadcasts statuses to
+       both clients). Excess ops are dropped, first hit logs once per window. */
+    static bool rate_limited(::peer &p)
+    {
+        if (ticks() - p.trade.ops_at >= 1u) { p.trade.ops_at = ticks(); p.trade.ops = 0; }
+        if (++p.trade.ops > 12u)
+        {
+            if (p.trade.ops == 13u)
+                printf("[trade] %s is flooding trade ops - dropping the rest of this window\n",
+                       p.growid.c_str());
+            return true;
+        }
+        return false;
+    }
+
     /* @note sound names come from the server-side reference set (GTopia/GrowServer), so the
        client is guaranteed to have the file; play_sfx is a plain text action. */
     void play_sfx_for(::peer &p, const char *name)
@@ -144,6 +160,7 @@ namespace trade
         if (p.trade.partner == nullptr) return;
         if (p.trade.close_at != 0) return; // @note deal already done - closing animation window
         if (itemID <= 0) return;
+        if (rate_limited(p)) return;
 
         const ::item &item = id_to_item(itemID);
         if (item.cat & CAT_UNTRADEABLE)
@@ -162,6 +179,19 @@ namespace trade
             if (s.id == itemID) held += s.count;
         if (count > held) count = held;
         if (count <= 0) return;
+
+        /* @note the client builds exactly 4 offer-slot widgets and its status parser walks
+           slotWidgets[i] without a bound (parser @0x1773390) - a 5th stack would run off the
+           array client-side. New stacks past the 4th are refused; re-offering an existing
+           stack (change the amount) stays allowed. */
+        const bool replaces = std::ranges::any_of(p.trade.items,
+            [itemID](const ::slot &s) { return s.id == itemID; });
+        if (!replaces && p.trade.items.size() >= 4u)
+        {
+            printf("[trade] %s tried to offer a 5th stack - refused (4 offer slots)\n", p.growid.c_str());
+            play_sfx_for(p, "bleep_fail.wav");
+            return;
+        }
 
         bool replaced = false;
         for (::slot &s : p.trade.items)
@@ -183,6 +213,7 @@ namespace trade
     {
         if (p.trade.partner == nullptr) return;
         if (p.trade.close_at != 0) return; // @note deal already done
+        if (rate_limited(p)) return;
 
         std::erase_if(p.trade.items, [itemID](const ::slot &s) { return s.id == itemID; });
 
@@ -209,6 +240,7 @@ namespace trade
        Both peers get their backpack state pushed by modify_item_inventory. */
     static void transfer(::peer &from, ::peer &to)
     {
+        if (&from == &to) return;
         ENetPeer *ep_from = peer_of(from);
         ENetPeer *ep_to = peer_of(to);
         if (ep_from == nullptr || ep_to == nullptr) return;
@@ -281,6 +313,7 @@ namespace trade
     {
         if (p.trade.partner == nullptr) return;
         if (p.trade.close_at != 0) return; // @note deal already done - input locked out
+        if (rate_limited(p)) return;
 
         ::peer &partner = *p.trade.partner;
 
@@ -312,6 +345,7 @@ namespace trade
                 play_sfx_for(p, "bleep_fail.wav");
                 play_sfx_for(partner, "bleep_fail.wav");
                 p.trade.accepted = false;
+                partner.trade.accepted = false; // @note both sides drop the accept on a refusal
                 printf("[trade] completion refused: %s\n", reason.c_str());
                 refresh(p);
                 return;
@@ -334,6 +368,11 @@ namespace trade
             partner.trade.close_at = p.trade.close_at;
             send_status(p);
             send_status(partner);
+
+            /* @note the offers have been paid out - drop them so no later code path can
+               ever pay them a second time (belt-and-braces against dupes) */
+            p.trade.items.clear();
+            partner.trade.items.clear();
             printf("[trade] completed: items moved, closing windows in ~3s (animation window)\n");
             return;
         }
@@ -344,6 +383,7 @@ namespace trade
     {
         if (p.trade.partner == nullptr) return;
         if (p.trade.close_at != 0) return; // @note deal already done
+        if (rate_limited(p)) return;
 
         p.trade.locked = locked;
         printf("[trade] %s locked=%d\n", p.growid.c_str(), locked);

@@ -8,7 +8,7 @@ const { init, NodeENetClient, Packet, PacketKind } = require("growtopia.wasm");
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = parseInt(process.env.PORT || "17091", 10);
 const WORLD = process.env.WORLD || "TRADEDEMO";
-const UIDA = parseInt(process.env.UIDA || "1", 10);
+const UIDA = parseInt(process.env.UIDA || "3", 10);
 const UIDB = parseInt(process.env.UIDB || "2", 10);
 
 function textPacket(peer, text) {

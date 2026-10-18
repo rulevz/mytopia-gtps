@@ -79,7 +79,15 @@ client before the items parser is upgraded (see P2).
       immediate OnForceTradeEnd destroyed the window and cut that animation off. SFX on
       every event (play_sfx text action, names from the reference audio set): page_turn on
       the confirm dialog, use_lock on lock, bloop on confirmed accept, success on completion,
-      dialog_cancel on cancel/leave, bleep_fail on refusals. The confirm dialog shows one
+      dialog_cancel on cancel/leave, bleep_fail on refusals. ANTI-EXPLOIT HARDENING: new offer
+      stacks cap at 4 (the client's status parser walks slotWidgets[i] unbounded - a 5th stack
+      would run off the array), trade ops are flood-guarded (~12/s per peer), accept flags on
+      BOTH sides drop when completion validation refuses, offers are cleared after payout so no
+      later path can re-pay them, and input stays locked during the completion window. Dedicated
+      test accounts: sims now run as uid3 (sim3) / uid4 (sim4) so a leftover stander or the dev
+      phone session can never be bound as the trade partner. Tests: tests/sim_trade_protect.js
+      (11 checks: slot cap, over-offer clamp, flood guard, double-accept race) and
+      tests/probe_session.js (single-session lifetime probe). The confirm dialog shows one
       icon row per offered stack (add_label_with_icon small: real item icon + count). Heavy
       widgets (add_button_with_icon tiles, add_player_info blocks) are structurally valid -
       client parser minimums recovered from disassembly (>=6 / >=5 fields) - but looked
