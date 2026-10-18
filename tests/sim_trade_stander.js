@@ -87,6 +87,7 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   check("A's own offer shows add_slot|1050|2", A.replies.some((r) => r.includes("add_slot|1050|2")));
   check("stander offered 1050 x5 by itself", A.replies.some((r) => r.includes("add_slot|1050|5")));
 
+  await wait(1200); // @note the server gates accept for ~1s after an offer change
   console.log("[A] lock + accept; the stander should accept back");
   A.send("action|trade_lock\nstatus|1\n");
   await wait(500);

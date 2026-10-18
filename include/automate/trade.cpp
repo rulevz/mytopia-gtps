@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include "onVariant/ConsoleMessage.hpp"
+#include "tools/time.hpp"
 
 #include <cstdlib>
 
@@ -14,6 +15,8 @@ namespace trade
                 return ep;
         return nullptr;
     }
+
+    static void notify_deal_changed(::peer &who); // @note defined below (offer-change UX)
 
     void send_status(::peer &p)
     {
@@ -155,7 +158,11 @@ namespace trade
         if (!replaced)
             p.trade.items.emplace_back(static_cast<short>(itemID), static_cast<short>(count));
 
+        /* @note anyone who had accepted is told the deal changed (and loses that accept) */
+        if (p.trade.accepted) notify_deal_changed(p);
+        if (p.trade.partner->trade.accepted) notify_deal_changed(*p.trade.partner);
         reset_accepts(p);
+        p.trade.changed_at = ticks();
         printf("[trade] %s offers item %d x%d (%zu offered)\n",
                p.growid.c_str(), itemID, count, p.trade.items.size());
         refresh(p);
@@ -166,7 +173,11 @@ namespace trade
         if (p.trade.partner == nullptr) return;
 
         std::erase_if(p.trade.items, [itemID](const ::slot &s) { return s.id == itemID; });
+
+        if (p.trade.accepted) notify_deal_changed(p);
+        if (p.trade.partner->trade.accepted) notify_deal_changed(*p.trade.partner);
         reset_accepts(p);
+        p.trade.changed_at = ticks();
         printf("[trade] %s removed item %d\n", p.growid.c_str(), itemID);
         refresh(p);
     }
@@ -212,18 +223,85 @@ namespace trade
         }
     }
 
+    /* @note retail UX (keichira/GTopia PlayerTrade::SendTradeStatus): anyone who already
+       accepted is told the deal changed, with a sound, the moment an offer moves. */
+    static void notify_deal_changed(::peer &who)
+    {
+        ENetPeer *ep = peer_of(who);
+        if (ep == nullptr) return;
+        send_varlist(ep, { "OnTextOverlay", "The deal has changed." });
+        send_action(*ep, "play_sfx", "file|audio/tile_removed.wav\ndelayMS|-1\n");
+    }
+
+    /* accept-time validation (mirrors keichira/GTopia PlayerTrade::CheckTradingItemsAndGetError):
+       every offer must still be backed by the sender's backpack and the receiving side must be
+       able to hold it. Entries cap at 200 in our inventory (peer::emplace) - the same
+       maxCanHold rule retail applies per item. Empty string == the trade may complete. */
+    static std::string check_items(::peer &p, ::peer &receiver)
+    {
+        constexpr int max_hold = 200;
+
+        for (const ::slot &offer : p.trade.items)
+        {
+            int held = 0;
+            for (const ::slot &s : p.slots)
+                if (s.id == offer.id) held += s.count;
+
+            if (offer.count <= 0 || held < offer.count)
+                return "`4Oops! Items missing from trade.``";
+
+            int receiver_held = 0;
+            for (const ::slot &s : receiver.slots)
+                if (s.id == offer.id) receiver_held += s.count;
+
+            const ::item &item = id_to_item(offer.id);
+            if (receiver_held + offer.count > max_hold)
+                return std::format("{} is carrying too many {} and can't fit that many in their backpack.",
+                                   receiver.growid, item.raw_name);
+
+            if (held > max_hold)
+                return std::format("{} doesn't have enough free backpack slots available.", p.growid);
+        }
+        return {};
+    }
+
     void set_accept(::peer &p, bool accepted)
     {
         if (p.trade.partner == nullptr) return;
 
         ::peer &partner = *p.trade.partner;
+
+        /* @note retail anti-scam: accepting is dead for a moment after an offer change, so a
+           fast swap can't ride an accept the other side already gave. */
+        if (accepted && !p.trade.accepted && ticks() - p.trade.changed_at < 1u)
+        {
+            printf("[trade] %s accepted too soon after a change - ignored\n", p.growid.c_str());
+            refresh(p);
+            return;
+        }
+
         p.trade.accepted = accepted;
         printf("[trade] %s accepted=%d (partner accepted=%d)\n",
                p.growid.c_str(), accepted, partner.trade.accepted);
 
         if (accepted && partner.trade.accepted)
         {
-            /* both sides accepted: move every offered stack, then force-close */
+            /* both sides accepted: validate, then move every offered stack, then force-close */
+            std::string reason = check_items(p, partner);
+            if (reason.empty()) reason = check_items(partner, p);
+
+            if (!reason.empty())
+            {
+                ENetPeer *ea = peer_of(p);
+                ENetPeer *eb = peer_of(partner);
+                if (ea != nullptr) send_varlist(ea, { "OnTextOverlay", reason });
+                if (eb != nullptr) send_varlist(eb, { "OnTextOverlay", reason });
+                p.trade.accepted = false;
+                printf("[trade] completion refused: %s\n", reason.c_str());
+                refresh(p);
+                return;
+            }
+
             transfer(p, partner);      // partner receives what p offered
             transfer(partner, p);      // p receives what partner offered
 
@@ -254,6 +332,10 @@ namespace trade
         ENetPeer *eb = peer_of(partner);
         ENetPeer *ea = peer_of(p);
         printf("[trade] end (%s): %s <-> %s\n", reason, p.growid.c_str(), partner.growid.c_str());
+
+        /* @note the side watching gets told who walked away (retail behaviour) */
+        if (std::string_view(reason) == "cancel" && eb != nullptr)
+            send_varlist(eb, { "OnTextOverlay", std::format("{} has canceled the trade", p.growid) });
 
         if (also_self && ea != nullptr) send_varlist(ea, { "OnForceTradeEnd" });
         if (eb != nullptr) send_varlist(eb, { "OnForceTradeEnd" });

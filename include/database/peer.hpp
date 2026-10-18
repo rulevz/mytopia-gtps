@@ -152,6 +152,7 @@ public:
         ::peer *partner{};
         bool accepted{};
         bool locked{};
+        u_int changed_at{}; // @note ticks() of the last offer change (accept is gated ~1s)
         std::vector<::slot> items{}; // @note this peer's offer {itemID, count}
     };
     peer_trade trade{};

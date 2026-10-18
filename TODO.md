@@ -53,8 +53,10 @@ client before the items parser is upgraded (see P2).
 - [x] Chat & moderation: mute + word filter (resources/chat_filter.txt - edit bebas) + [admin] audit log
 - [~] Store/economy: gems persisted (starter 1000 + /setgems), store tabs & purchases verified
       (E4: World Lock purchase deducts & persists); real-money IAP packs still stubbed
-- [ ] Verify item rendering with the served items.dat (0x1a) on 5.57
-- [~] Trade system: display VERIFIED on a real 5.57 client — wrench→Trade opens both offer
+- [x] Verify item rendering with the served items.dat (0x1a) on 5.57 — trade panels render
+      real item icons/names from our file; the hash/deflate delivery fix below removed the
+      "updating items" round-trip on every login
+- [x] Trade system: display VERIFIED on a real 5.57 client — wrench→Trade opens both offer
       panels; the status format was recovered by disassembling libgrowtopia.so:
       `OnTradeStatus(netid, captionA, captionB, data)` where netid selects the panel (own vs
       partner) and data = `add_slot|<itemID>|<count>` lines + `locked|`/`accepted|` flags.
@@ -64,8 +66,15 @@ client before the items parser is upgraded (see P2).
       "You can't trade that.". COMPLETION MOVES ITEMS: on dual-accept the offered stacks are
       debited/credited between the two backpacks (clamped to what is still held + the
       200-per-entry cap), verified end-to-end through the proxy and persisted in the DB
-      (uid 1: 22 -2 +5 = 25). Disconnect/leave ends an active trade before the peer object
-      dies. Pending: reset_locks polish, trade_check_price reply, backpack-full UX
+      (uid 1: 22 -2 +5 = 25). Retail accept rules (mirrored from keichira/GTopia
+      PlayerTrade): both directions are validated at completion (every offer must still be
+      backed by the sender's backpack; the receiver must be able to hold it — 200/entry),
+      a refusal tells BOTH players why and moves nothing; accepting is gated ~1s after an
+      offer change (anti-scam swap); an offer change under an accepted deal sends
+      "The deal has changed." + the tile_removed SFX; a cancel tells the other side who
+      walked away. Disconnect/leave ends an active trade before the peer object dies.
+      Leftovers (non-blocking): `reset_locks|1` (retail servers never send it either) and
+      `trade_check_price` (no reference reply exists — logged only)
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate

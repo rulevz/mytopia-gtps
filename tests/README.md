@@ -38,12 +38,17 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
 - `node sim_trade_flow.js`
   Two-client trade driver (uid 1 + 2, world TRADETEST): wrench → Trade button →
   quantity dialog → offer/removal → re-offer → lock/accept/complete (with item
-  transfer) plus a cancel pass — 16 checks, against the capture proxy by default.
+  transfer) plus a cancel pass (incl. the "X has canceled the trade" overlay) —
+  17 checks, against the capture proxy by default. Accept is gated ~1s after an
+  offer change (anti-scam), so leave >=1.2s between the last offer and the accept.
 - `node sim_trade_stander.js`
   The phone flow against the LIVE stander bot: joins the stander's world, wrenches
   it, checks that the stander puts its own 1050 x5 on the table and auto-accepts,
   and that the trade completes — 7 checks. Use a world the bot can enter (a locked
-  world refuses role-PLAYER peers with OnFailedToEnterWorld).
+  world refuses role-PLAYER peers with OnFailedToEnterWorld). To exercise the
+  accept-time refusal, seed the bot's backpack full first:
+  `UPDATE peer SET inventory = UNHEX('1000000001001A04C800') WHERE uid = 2;`
+  (1050 x200) — the completion is then refused with "... is carrying too many ...".
 - `node sim_stander.js`
   Idle stander bot: logs in (UID, default 2) and stays in a world (WORLD, default
   TRADETEST) so another player — e.g. a phone through the capture proxy — has

@@ -123,6 +123,7 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   check("B sees the re-offer add_slot|1050|2",
     B.replies.slice(markB2).some((r) => r.includes("add_slot|1050|2")));
 
+  await wait(1200); // @note the server gates accept for ~1s after an offer change
   console.log("[B] lock 1; both accept");
   B.send("action|trade_lock\nstatus|1\n");
   await wait(400);
@@ -142,6 +143,7 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   A.send("action|trade_cancel\n"); await wait(700);
   check("B got a second OnForceTradeEnd (cancel)",
     B.replies.filter((r) => r.includes("OnForceTradeEnd")).length >= 2);
+  check("B told who canceled", B.replies.some((r) => r.includes("has canceled the trade")));
 
   const failed = checks.filter(([, ok]) => !ok).length;
   console.log(`RESULT: ${checks.length - failed}/${checks.length} checks passed, packets A=${A.replies.length} B=${B.replies.length}`);
