@@ -97,10 +97,10 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   const markB = B.replies.length;
   A.send("action|rem_trade\nitemID|1050\n");
   await wait(700);
-  check("B sees A's offer slot|0|9640|2 (partner panel data)", B.replies.some((r) => r.includes("slot|0|9640|2")));
+  check("B sees A's offer add_slot|9640|2", B.replies.some((r) => r.includes("add_slot|9640|2")));
   const afterRem = B.replies.slice(markB).join("\n"); // only packets sent after the removal
   check("B's view after removal lists 9640 but not 1050",
-    afterRem.includes("slot|0|9640|2") && !afterRem.includes("1050"));
+    afterRem.includes("add_slot|9640|2") && !afterRem.includes("1050"));
 
   console.log("[B] lock 1; both accept");
   B.send("action|trade_lock\nstatus|1\n");

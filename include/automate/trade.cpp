@@ -22,36 +22,41 @@ namespace trade
 
         ::peer &partner = *p.trade.partner;
 
-        /* two packets per refresh (semantics still being pinned by real-client captures):
-           1) the PARTNER's offer  - partnerNetID + "X's offer.``" label + partner's slots
-           2) the RECIPIENT's own offer - own netID + "Your offer.``" + own slots
-           status text: slot|<index>|<itemID>|<count>\n ... accepted|<0|1> locked|<0|1> */
-        std::string partnerItems{};
-        for (std::size_t i = 0; i < partner.trade.items.size(); ++i)
-            partnerItems += std::format("slot|{}|{}|{}\n", i, partner.trade.items[i].id, partner.trade.items[i].count);
-        partnerItems += std::format("accepted|{}\n", partner.trade.accepted ? 1 : 0);
-        partnerItems += std::format("locked|{}\n", partner.trade.locked ? 1 : 0);
+        /* Modern (5.57) trade status data format, recovered from the client binary
+           (libgrowtopia.so parser @0x1773390): newline-separated lines
+             add_slot|<itemID>|<count>   (one per slot, ORDER = slot index 0..3)
+             locked|<0|1>
+             accepted|<0|1>
+             reset_locks|1               (optional)
+           The client fills one panel per packet: an EMPTY 2nd arg targets one panel,
+           a NON-EMPTY 2nd arg (must carry the partner's netid) targets the other.
+           We fill both panels with their own data each refresh. */
+        auto build = [](const ::peer &who)
+        {
+            std::string data{};
+            for (const ::slot &s : who.trade.items)
+                data += std::format("add_slot|{}|{}\n", s.id, s.count);
+            data += std::format("locked|{}\n", who.trade.locked ? 1 : 0);
+            data += std::format("accepted|{}\n", who.trade.accepted ? 1 : 0);
+            return data;
+        };
 
+        /* panel A: empty 2nd arg -> partner's offer data */
         send_varlist(ep, {
             "OnTradeStatus",
             static_cast<signed>(partner.netid),
             "",
-            std::format("{}'s offer.``", partner.growid),
-            partnerItems
+            "",
+            build(partner)
         });
 
-        std::string ownItems{};
-        for (std::size_t i = 0; i < p.trade.items.size(); ++i)
-            ownItems += std::format("slot|{}|{}|{}\n", i, p.trade.items[i].id, p.trade.items[i].count);
-        ownItems += std::format("accepted|{}\n", p.trade.accepted ? 1 : 0);
-        ownItems += std::format("locked|{}\n", p.trade.locked ? 1 : 0);
-
+        /* panel B: non-empty 2nd arg -> recipient's own offer data */
         send_varlist(ep, {
             "OnTradeStatus",
-            static_cast<signed>(p.netid),
-            "",
-            "Your offer.``",
-            ownItems
+            static_cast<signed>(partner.netid),
+            " ",
+            std::format("{}'s offer.``", partner.growid),
+            build(p)
         });
     }
 
