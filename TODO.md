@@ -97,8 +97,13 @@ client before the items parser is upgraded (see P2).
       `dataLength` (= our `.size`) is the compressed payload length. With info left at 0 the
       client discarded every payload, kept its own cache and repeated the local update step —
       the phone captures proved it (client `fhash` stayed put, no refresh request ever settled).
-      Verifying a fix: the client's login `fhash` should flip to the advertised hash, and
-      `refresh_item_data` (logged per growid) should stop appearing
+      The client's update path is the CDN URL from the logon varlist, not only the ENet ask:
+      we were advertising the retail Akamai CDN, whose path 404s, so the update could never
+      complete. Now the varlist points at OUR OWN address (gServer_data.server) and the https
+      listener serves the raw bytes for any path containing `items.dat` (verified: 200 +
+      5697998 bytes whose rttex hash equals the advertised 658714645). Verifying a fix: the
+      client's login `fhash` should flip to the advertised hash, and `refresh_item_data`
+      (logged per growid) should stop appearing
 - [~] Packet captures for unimplemented features (trade, redeem codes, clash, gacha...)
       via `tools/gtproxy/` (our own ENet relay - replaces the GTProxy/packet-reader
       idea): built + verified end-to-end (login/commands/punch relayed byte-identically;

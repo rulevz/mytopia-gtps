@@ -73,6 +73,11 @@ Requires `items.dat`, `server_data.php`, `mysql_login.txt` in the working direct
 - `items`: the `refresh_item_data` payload is now DEFLATE-compressed (5.70 -> 0.98 MB)
   with tank type 0x10 / netid -1 / S_EXTENDED, matching retail servers (a raw payload
   never settled the client cache); the request is also logged per growid
+- `items`: the logon varlist's CDN host now points at this server and the https listener
+  serves the raw bytes for any path containing `items.dat` (200 + exact length). Advertising
+  the retail CDN (whose path 404s) made the client's item update impossible to complete -
+  it showed "updating items" on every launch. The advertised rttex hash is computed over
+  exactly the bytes served
 
 ## Packet capture (`tools/gtproxy`)
 
