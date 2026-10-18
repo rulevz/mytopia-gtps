@@ -77,31 +77,50 @@ void action::trade_accept(ENetEvent& event, const std::string& header)
 
     if (pPeer->trade.partner == nullptr) return;
 
-    /* @note safety net: accepting asks for confirmation first, and the dialog spells out
-       both sides of the deal. The client answers with
-       dialog_return -> dialog_name|trade_accept (+ buttonClicked). */
-    auto offer_of = [](const ::peer &who)
+    /* @note modern confirmation dialog: popup title, deal header, one icon row per offered
+       stack on both sides, warnings, and a labelled Cancel/Accept pair. Every command here
+       is already proven to render on the phone (wrench menu / gazette / drop dialogs use
+       add_popup_name, add_custom_break, add_smalltext, add_label_with_icon, end_dialog).
+       The client answers dialog_return -> dialog_name|trade_accept (+ buttonClicked). */
+    const ::peer &partner = *pPeer->trade.partner;
+
+    auto rows_of = [](const ::peer &who)
     {
-        std::string out{};
+        std::string rows{};
         for (const ::slot &slot : who.trade.items)
-        {
-            if (!out.empty()) out += ", ";
-            out += std::format("{} x{}", id_to_item(slot.id).raw_name, slot.count);
-        }
-        return out.empty() ? std::string{ "nothing" } : out;
+            rows += std::format("add_label_with_icon|small|`w{}`` `ox{}``|left|{}|\n",
+                                id_to_item(slot.id).raw_name, slot.count, slot.id);
+        if (rows.empty()) rows = "add_smalltext|`8- nothing offered -``|left|\n";
+        return rows;
     };
 
-    const ::peer &partner = *pPeer->trade.partner;
+    auto stack_note = [](const ::peer &who)
+    {
+        const std::size_t n = who.trade.items.size();
+        return std::format("({} stack{})", n, n == 1 ? "" : "s");
+    };
+
     send_varlist(event.peer, {
         "OnDialogRequest",
-        create_dialog()
-            .set_default_color("`o")
-            .add_label_with_icon("big", "`2Accept this trade?``", 9640)
-            .add_textbox(std::format("`2You give:`` {}", offer_of(*pPeer)))
-            .add_textbox(std::format("`2You get:`` {}", offer_of(partner)))
-            .add_spacer("small")
-            .add_textbox("`4Once both sides accept it cannot be undone.``")
-            .end_dialog("trade_accept", "Cancel", "Accept")
+        std::format(
+            "set_default_color|`o\n"
+            "add_popup_name|TradeConfirm\n"
+            "add_label_with_icon|big|`wAccept this trade?``|left|9640|\n"
+            "add_smalltext|`oDeal between `w{}`` and `w{}`` - review both sides before it becomes final.``|left|\n"
+            "add_custom_break|\n"
+            "add_textbox|`2You give:`` `8{}``|left|\n"
+            "{}"
+            "add_spacer|small|\n"
+            "add_textbox|`2You get:`` `8{}``|left|\n"
+            "{}"
+            "add_custom_break|\n"
+            "add_smalltext|`4Once both sides accept the trade is final - items cannot be recovered.``|left|\n"
+            "add_smalltext|`5Tip: tap Lock first if you need a moment to double-check.``|left|\n"
+            "end_dialog|trade_accept|Cancel|Accept Trade|\n",
+            pPeer->growid, partner.growid,
+            stack_note(*pPeer), rows_of(*pPeer),
+            stack_note(partner), rows_of(partner)
+        )
     });
     printf("[trade] %s tapped accept - confirmation dialog sent\n", pPeer->growid.c_str());
 }
