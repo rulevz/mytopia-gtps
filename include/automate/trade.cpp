@@ -131,6 +131,14 @@ namespace trade
     {
         if (p.trade.partner == nullptr) return;
         if (itemID <= 0) return;
+
+        const ::item &item = id_to_item(itemID);
+        if (item.cat & CAT_UNTRADEABLE)
+        {
+            printf("[trade] %s tried to offer untradeable item %d\n", p.growid.c_str(), itemID);
+            return;
+        }
+
         if (count <= 0) count = 1;
         if (count > 32767) count = 32767;
 

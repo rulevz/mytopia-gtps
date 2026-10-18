@@ -1,4 +1,5 @@
 #include "pch.hpp"
+#include "tools/create_dialog.hpp"
 #include "automate/trade.hpp"
 
 #include "trade_msg.hpp"
@@ -16,6 +17,36 @@ void action::mod_trade(ENetEvent& event, const std::string& header)
     try
     {
         const int itemID = std::stoi(hPipe["itemID"]);
+
+        const ::item &item = id_to_item(itemID);
+        if (item.cat & CAT_UNTRADEABLE)
+        {
+            send_varlist(event.peer, { "OnTextOverlay", "You can't trade that." });
+            return;
+        }
+
+        /* a stack needs a quantity pick first - same flow as dropping items */
+        int held = 0;
+        for (const ::slot &slot : pPeer->slots)
+            if (slot.id == itemID) held += slot.count;
+
+        printf("[trade] mod_trade: %s item %d (held %d)\n", pPeer->growid.c_str(), itemID, held);
+
+        if (held > 1)
+        {
+            send_varlist(event.peer, {
+                "OnDialogRequest",
+                create_dialog()
+                    .set_default_color("`o")
+                    .add_label_with_icon("big", std::format("`wTrade {}``", item.raw_name), item.id)
+                    .add_textbox("How many to trade?")
+                    .add_text_input("count", "", static_cast<short>(std::min(held, 200)), 5)
+                    .embed_data("itemID", item.id)
+                    .end_dialog("trade_item")
+            });
+            return;
+        }
+
         int count = 1;
         if (!hPipe["count"].empty()) count = std::stoi(hPipe["count"]);
         trade::add_item(*pPeer, itemID, count);

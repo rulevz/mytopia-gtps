@@ -89,18 +89,30 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   check("B got OnStartTrade", B.replies.some((r) => r.includes("OnStartTrade")));
   check("A got OnTradeStatus", A.replies.some((r) => r.includes("OnTradeStatus")));
 
-  console.log("[A] offers 9640x2, then 1050x1, then removes 1050");
-  A.send("action|mod_trade\nitemID|9640\ncount|2\n");
-  await wait(400);
-  A.send("action|mod_trade\nitemID|1050\ncount|1\n");
-  await wait(400);
+  console.log("[A] stocking up for the quantity-dialog test");
+  A.send("action|input\ntext|/give 1050 5\n");
+  await wait(800);
+  check("give command replied", A.replies.some((r) => r.includes("Gave 5x item 1050")));
+
+  console.log("[A] tap an untradeable item (9640 = My First World Lock) -> refusal");
+  A.send("action|mod_trade\nitemID|9640\n");
+  await wait(500);
+  check("untradeable item refused", A.replies.some((r) => r.includes("You can't trade that")));
+
+  console.log("[A] tap 1050 (stack) -> expect the quantity dialog");
+  A.send("action|mod_trade\nitemID|1050\n");
+  await wait(700);
+  check("quantity dialog shown for a stack", A.replies.some((r) => r.includes("trade_item")));
+  A.send("action|dialog_return\ndialog_name|trade_item\nitemID|1050\ncount|2\n");
+  await wait(700);
+  check("B sees A's offer add_slot|1050|2", B.replies.some((r) => r.includes("add_slot|1050|2")));
+
+  console.log("[A] remove 1050 from the offer");
   const markB = B.replies.length;
   A.send("action|rem_trade\nitemID|1050\n");
-  await wait(700);
-  check("B sees A's offer add_slot|9640|2", B.replies.some((r) => r.includes("add_slot|9640|2")));
+  await wait(800);
   const afterRem = B.replies.slice(markB).join("\n"); // only packets sent after the removal
-  check("B's view after removal lists 9640 but not 1050",
-    afterRem.includes("add_slot|9640|2") && !afterRem.includes("1050"));
+  check("B's view after removal has no 1050 offer", !afterRem.includes("add_slot|1050"));
 
   console.log("[B] lock 1; both accept");
   B.send("action|trade_lock\nstatus|1\n");
