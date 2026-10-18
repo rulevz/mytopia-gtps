@@ -42,8 +42,12 @@ void receive(ENetEvent& event)
             gamePacket.size = event.packet->dataLength - sizeof(::gamePacket); // @todo did i do this right? or check for flag ::EXTENDED
             if (g_verbose) printf("[enet] tank: type=0x%02x netid=%d size=%u\n", gamePacket.type, gamePacket.netid, gamePacket.size); // @note debug logging
 
-            // @note guard: reject out-of-bounds tile positions (punch is always tile
-            // coords; garbage values used to index blocks[] unchecked -> crash vector)
+            // @note guard: reject out-of-bounds tile positions for the packet types that
+            // INDEX blocks with punch (tile_change 0x03 / tile_activate 0x07) - garbage
+            // values used to index blocks[] unchecked -> crash vector. movement (0x00) and
+            // friends legitimately carry punch=(-1,-1) and must pass, or clients silently
+            // stop syncing while walking.
+            if (gamePacket.type == 0x03 || gamePacket.type == 0x07)
             if (const float px = gamePacket.punch.x, py = gamePacket.punch.y;
                 px < 0.0f || px >= 100.0f || py < 0.0f || py >= 60.0f)
             {

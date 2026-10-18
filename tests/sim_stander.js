@@ -14,6 +14,28 @@ function textPacket(peer, text) {
   peer.send(new Packet(new Uint8Array(payload), PacketKind.Reliable));
 }
 
+// 60-byte tank packet; pos/punch in their wire units (pos px, punch tiles)
+function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
+  const b = Buffer.alloc(60);
+  let o = 0;
+  b.writeInt32LE(4, o); o += 4;      // packet_create
+  b.writeInt32LE(type, o); o += 4;
+  b.writeInt32LE(0, o); o += 4;      // netid
+  b.writeInt32LE(0, o); o += 4;      // uid
+  b.writeInt32LE(state, o); o += 4;
+  b.writeFloatLE(0, o); o += 4;      // count
+  b.writeInt32LE(id, o); o += 4;     // active hand
+  b.writeFloatLE(posX, o); o += 4;
+  b.writeFloatLE(posY, o); o += 4;
+  b.writeFloatLE(0, o); o += 4;      // speed.x
+  b.writeFloatLE(0, o); o += 4;      // speed.y
+  b.writeFloatLE(0, o); o += 4;      // idk
+  b.writeInt32LE(punchX, o); o += 4; // punch = last tapped tile (-1 when none)
+  b.writeInt32LE(punchY, o); o += 4;
+  b.writeUInt32LE(0, o); o += 4;     // size
+  peer.send(new Packet(new Uint8Array(b), PacketKind.Reliable));
+}
+
 (async () => {
   await init();
   const client = new NodeENetClient(HOST, 0, 1, 2);
@@ -21,6 +43,7 @@ function textPacket(peer, text) {
   client.startPolling(15);
 
   let sawNetId = false;
+  let announced = false;
 
   client.emitter.on("connect", (peer) => {
     const parts = [
@@ -41,10 +64,22 @@ function textPacket(peer, text) {
     try {
       const d = Buffer.from(typeof packet.data === "function" ? packet.data() : packet.data);
       const s = d.toString("latin1");
-      const m = s.match(new RegExp("netID\\|(\\d+)\\nuserID\\|" + UID + "\\n"));
+      const m = s.match(new RegExp("netID\\|(\\d+)\\nuserID\\|" + UID + "\\n[\\s\\S]*?posXY\\|(\\d+)\\|(\\d+)\\n"));
       if (m && !sawNetId) {
         sawNetId = true;
         console.log(">> my netID in world:", m[1], "- stand here so others can wrench you");
+      }
+      // announce our position like a real client does (walk-mode packet, punch -1):
+      // without this the server only knows the join-time baseline position.
+      if (m && !announced) {
+        announced = true;
+        // stand one tile to the right of the spawn door so players spawning on the
+        // door tile see you next to them instead of overlapping
+        const px = (parseInt(m[2], 10) + 1) * 32, py = parseInt(m[3], 10) * 32;
+        setTimeout(() => {
+          tankPacket(peer, 0x00, 0, px, py, -1, -1, 0x04);
+          console.log(">> position announced at", (parseInt(m[2], 10) + 1) + "," + m[3]);
+        }, 600);
       }
     } catch (e) {}
   });

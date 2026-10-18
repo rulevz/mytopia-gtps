@@ -47,6 +47,10 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
   Regression for the world-lifecycle fix: B taps the main door (tank 0x07) + sends
   quit_to_exit (the real double-exit) and rejoins — netid must not reset, visitors
   must stay counted, A must see exactly one remove + B's new spawn.
+- `node sim_movement_sync.js`
+  Regression for the punch-guard scope fix: B walks with punch=-1,-1 (what retail
+  clients send while walking) + valid punch; A must receive ALL movement broadcasts
+  (the guard used to silently drop ~63% of real movements - players appeared frozen).
 
 Notes:
 - `sim_protocol_login.js` registers/loads the account inside the ltoken payload

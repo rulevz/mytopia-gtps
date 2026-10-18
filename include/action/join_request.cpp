@@ -56,6 +56,11 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
             pPeer->display_growid = std::format("`c{}``", pPeer->growid);
 
         pPeer->rest_pos = world.spawn;
+        pPeer->pos = world.spawn; // @note baseline world position: a peer that never sends
+                                  // movement (idle clients) must still spawn visibly at the
+                                  // door tile for everyone else, not at (0,0)
+        if (pPeer->display_growid.empty()) // @note clients that skip enter_game (sims/bots)
+            pPeer->display_growid = std::format("`w{}``", pPeer->growid);
 
         /* @note assign a netid that no peer in this world claims - a recreated world
            object (fresh counter) must never collide with peers lingering from an

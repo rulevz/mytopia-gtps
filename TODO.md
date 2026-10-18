@@ -31,6 +31,13 @@ client before the items parser is upgraded (see P2).
       (colliding avatars -> players turned invisible). Now: idempotent exit guard, safe
       visitor decrement, collision-free netid assignment (u_short counter); regression test
       `tests/sim_world_door_exit.js` (6/6, also verified through the capture proxy)
+- [x] Avatar visibility/position sync fixed (all three layers): (1) spawn broadcasts use
+      `peer::pos` - now initialized to the world spawn at join (idle peers used to spawn
+      at tile 0,0, effectively invisible near the door); (2) `display_growid` fallback for
+      clients that skip enter_game; (3) the tank punch bounds-guard now only applies to
+      packets that INDEX blocks with punch (tile_change/tile_activate) - it was silently
+      dropping ~63% of real-client movements (punch=-1 when walking), freezing avatars for
+      everyone else. Regression: `tests/sim_movement_sync.js` (2/2 through the proxy)
 
 ## P1 - Gameplay content
 - [~] `@todo` sweep: duct-tape 10min expiry (main-loop watchdog), object stacking cap 200 +
