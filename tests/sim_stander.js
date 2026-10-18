@@ -104,12 +104,13 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
           setTimeout(() => textPacket(peer, "action|mod_trade\nitemID|1050\n"), 600);
         }, 1500);
       }
-      // the server asks for confirmation when we tap accept - answer it
-      if (!answeredConfirm && s.includes("end_dialog|trade_accept")) {
+      // the server opens the "Trade Confirmation" dialog once both sides accepted -
+      // press Do The Trade! so the payout (with flying items) happens
+      if (!answeredConfirm && s.includes("end_dialog|trade_confirm")) {
         answeredConfirm = true;
         setTimeout(() => {
-          textPacket(peer, "action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
-          console.log(">> confirmed accepting the trade");
+          textPacket(peer, "action|dialog_return\ndialog_name|trade_confirm\nbuttonClicked|accept\n");
+          console.log(">> pressed Do The Trade!");
         }, 400);
       }
       if (!answeredDialog && s.includes("end_dialog|trade_item")) {

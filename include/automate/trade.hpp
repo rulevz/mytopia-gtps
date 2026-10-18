@@ -22,8 +22,13 @@ namespace trade
     void set_accept(::peer &p, bool accepted);
     void set_lock(::peer &p, bool locked);
 
-    /* play audio/<name> to one peer (no-op if that peer is gone) */
-    void play_sfx_for(::peer &p, const char *name);
+    /* "Do The Trade!" pressed in the confirmation dialog: flags the side, and once BOTH
+       confirmed it re-validates and pays out both offers (with the flying-item visual). */
+    void confirm_offer(::peer &p);
+
+    /* play audio/<name> to one peer (no-op if that peer is gone).
+       delay_ms: >0 schedules it client-side (delayMS), -1 = immediate. */
+    void play_sfx_for(::peer &p, const char *name, int delay_ms = -1);
 
     /* push the current trade state to this peer (single view) / both sides */
     void send_status(::peer &p);

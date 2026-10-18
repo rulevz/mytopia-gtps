@@ -124,34 +124,52 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
     B.replies.slice(markB2).some((r) => r.includes("add_slot|1050|2")));
 
   await wait(1200); // @note the server gates accept for ~1s after an offer change
-  console.log("[B] lock 1; both accept");
+  console.log("[B] lock 1; both tick accept");
   B.send("action|trade_lock\nstatus|1\n");
   await wait(400);
   check("A sees partner locked|1", A.replies.some((r) => r.includes("locked|1")));
 
-  console.log("[A] tap accept -> confirmation dialog -> confirm");
+  console.log("[A] tick accept");
   A.send("action|trade_accept\nstatus|1\n");
-  await wait(700);
-  check("accept asks for confirmation",
-    A.replies.some((r) => r.includes("end_dialog|trade_accept")) && A.replies.some((r) => r.includes("Accept this trade")));
-  check("confirmation lists what A gives",
-    A.replies.some((r) => r.includes("You give:") && !r.includes("You give:`` nothing")));
-  A.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
   await wait(500);
+  check("A's accept ticked (status shows accepted|1)",
+    A.replies.some((r) => r.includes("Your offer") && r.includes("accepted|1")));
+  check("B sees A's accept ticked",
+    B.replies.some((r) => r.includes("'s offer") && r.includes("accepted|1")));
 
-  console.log("[B] tap accept -> confirm too");
+  console.log("[B] tick accept -> both accepted: windows close, confirmation dialogs open");
   B.send("action|trade_accept\nstatus|1\n");
-  await wait(700);
-  check("B asked for confirmation too", B.replies.some((r) => r.includes("end_dialog|trade_accept")));
-  B.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
-  await wait(1200);
-  check("mutual-accepted status pushed (animation cue)",
-    A.replies.some((r) => r.includes("'s offer") && r.includes("accepted|1")));
-  check("A told the trade completed", A.replies.some((r) => r.includes("Trade completed")));
-  check("completion sfx played", A.replies.some((r) => r.includes("play_sfx") && r.includes("success.wav")));
-  await wait(3200); // @note windows stay open ~3s so the client can animate the swap
-  check("A got OnForceTradeEnd (completion)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
-  check("B got OnForceTradeEnd (completion)", B.replies.some((r) => r.includes("OnForceTradeEnd")));
+  await wait(1100);
+  check("A got OnForceTradeEnd (windows close at both-accept)",
+    A.replies.some((r) => r.includes("OnForceTradeEnd")));
+  check("B got OnForceTradeEnd (windows close at both-accept)",
+    B.replies.some((r) => r.includes("OnForceTradeEnd")));
+  check("A got the Trade Confirmation dialog",
+    A.replies.some((r) => r.includes("Trade Confirmation") && r.includes("end_dialog|trade_confirm")));
+  check("B got the Trade Confirmation dialog",
+    B.replies.some((r) => r.includes("end_dialog|trade_confirm")));
+  check("confirmation lists what A gives",
+    A.replies.some((r) => r.includes("You'll give:") && r.includes("1050")));
+
+  console.log("[A] press Do The Trade! (first confirmer waits for the partner)");
+  A.send("action|dialog_return\ndialog_name|trade_confirm\nbuttonClicked|accept\n");
+  await wait(600);
+  check("A told to wait for the partner", A.replies.some((r) => r.includes("waiting for other player")));
+  check("B told A confirmed", B.replies.some((r) => r.includes("waiting for you")));
+
+  console.log("[B] press Do The Trade! -> payout with the flying items");
+  const flyMarkA = A.replies.length;
+  const flyMarkB = B.replies.length;
+  B.send("action|dialog_return\ndialog_name|trade_confirm\nbuttonClicked|accept\n");
+  await wait(1600);
+  const freshA = A.replies.slice(flyMarkA).join("\n");
+  const freshB = B.replies.slice(flyMarkB).join("\n");
+  check("A got the flying-item visual (trade fly tank packet)", freshA.includes("\x13\x00\x00\x03"));
+  check("B got the flying-item visual (trade fly tank packet)", freshB.includes("\x13\x00\x00\x03"));
+  check("A told the trade completed", freshA.includes("Trade completed"));
+  check("world announcement of the trade", freshA.includes("traded"));
+  check("fly sound staggered (change_clothes)", freshA.includes("change_clothes"));
+  check("finish sound scheduled (keypad_hit)", freshA.includes("keypad_hit"));
 
   // --- trade #2: cancel path ---
   console.log("[A] start trade again, then cancel");
@@ -160,7 +178,7 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   A.send("action|trade_cancel\n"); await wait(700);
   check("B got a second OnForceTradeEnd (cancel)",
     B.replies.filter((r) => r.includes("OnForceTradeEnd")).length >= 2);
-  check("B told who canceled", B.replies.some((r) => r.includes("has canceled the trade")));
+  check("B told who canceled", B.replies.some((r) => r.includes("Trade canceled by")));
 
   const failed = checks.filter(([, ok]) => !ok).length;
   console.log(`RESULT: ${checks.length - failed}/${checks.length} checks passed, packets A=${A.replies.length} B=${B.replies.length}`);

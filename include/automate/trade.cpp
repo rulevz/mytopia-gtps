@@ -35,12 +35,13 @@ namespace trade
     }
 
     /* @note sound names come from the server-side reference set (GTopia/GrowServer), so the
-       client is guaranteed to have the file; play_sfx is a plain text action. */
-    void play_sfx_for(::peer &p, const char *name)
+       client is guaranteed to have the file; play_sfx is a plain text action.
+       delay_ms > 0 schedules playback client-side (used to stagger the trade fly sounds). */
+    void play_sfx_for(::peer &p, const char *name, int delay_ms)
     {
         ENetPeer *ep = peer_of(p);
         if (ep == nullptr) return;
-        send_action(*ep, "play_sfx", std::format("file|audio/{}\ndelayMS|-1\n", name));
+        send_action(*ep, "play_sfx", std::format("file|audio/{}\ndelayMS|{}\n", name, delay_ms));
     }
 
     void send_status(::peer &p)
@@ -121,6 +122,77 @@ namespace trade
     {
         send_status(p);
         if (p.trade.partner != nullptr) send_status(*p.trade.partner);
+    }
+
+    /* @note flying-item visual, mirrored byte-for-byte from a working server's trade payout
+       (ReU GrowTavern, dialog_return.h trade_confirm): one 56-byte PlayerMoving broadcast to
+       the world per item stack -
+         type  = 0x03000013  -> bytes: u8 type=19, punchID=0, buildRange=0, punchRange=3
+         netid = the player RECEIVING the stack
+         uid   = the player SENDING it (the client reads this as the target at +8)
+         id    = the ms duration the client uses for the flight (staggered 450ms steps)
+         punch = {itemID, itemID}
+       The client animates the item icon flying between the two players - this is the
+       retail "item melayang" on a completed trade. */
+    static void send_fly(::peer &from, ::peer &to, int itemID, int ms)
+    {
+        ENetPeer *ep = peer_of(from);
+        if (ep == nullptr) return;
+
+        ::gamePacket gp{
+            .type  = 0x03000013,
+            .netid = to.netid,
+            .uid   = from.netid,
+            .id    = ms,
+            .punch = ::pos{ itemID, itemID },
+        };
+        state_visuals(*ep, std::move(gp)); // @note broadcast to everyone in the world
+    }
+
+    /* one small icon row per offered stack // @note retail format: "(count) Name" */
+    static std::string trade_rows(const ::peer &who)
+    {
+        std::string rows{};
+        for (const ::slot &s : who.trade.items)
+            rows += std::format("\nadd_label_with_icon|small|(`w{}``) {}|left|{}|",
+                                s.count, id_to_item(s.id).raw_name, s.id);
+        return rows;
+    }
+
+    /* @note retail confirmation dialog (reference: ReU GrowTavern). Opens once BOTH sides
+       ticked accept; the trade windows are already closed at that point. Nothing moves
+       until both press "Do The Trade!". */
+    static void send_confirm_dialog(::peer &who)
+    {
+        if (who.trade.partner == nullptr) return;
+        ENetPeer *ep = peer_of(who);
+        if (ep == nullptr) return;
+        ::peer &partner = *who.trade.partner;
+
+        const std::string scam = partner.trade.items.empty()
+            ? "\nadd_spacer|small|\nadd_textbox|`4SCAM WARNING: ``You are about to do a trade"
+              " without receiving anything in return. Once you do the trade you cannot get"
+              " the items back.|left|\nadd_textbox|`4Do you really want to do this?``|left|"
+              "\nadd_spacer|small|"
+            : "";
+
+        send_varlist(ep, {
+            "OnDialogRequest",
+            std::format(
+                "set_default_color|`o\n"
+                "add_label_with_icon|big|`wTrade Confirmation``|left|1366|\n"
+                "add_spacer|small|\n"
+                "add_textbox|`4You'll give:``|left|\n"
+                "add_spacer|small|{}\n"
+                "add_spacer|small|\n"
+                "add_textbox|`2You'll get:``|left|\n"
+                "add_spacer|small|{}\n"
+                "add_spacer|small|{}"
+                "add_button|accept|Do The Trade!|noflags|0|0|\n"
+                "add_button|back|Cancel|noflags|0|0|\n"
+                "end_dialog|trade_confirm|||",
+                trade_rows(who), trade_rows(partner), scam)
+        });
     }
 
     static void reset_accepts(::peer &p)
@@ -233,12 +305,13 @@ namespace trade
         return std::max(0, 200 - static_cast<int>(it->count));
     }
 
-    /* move every offered stack from one backpack to the other.
-       Offers are reservations kept in trade.items (they never left the backpack), so the
-       sender is debited here - clamped to what is still actually held (the player may have
-       spent/dropped items mid-trade) and to what the receiver can hold (200 per entry).
-       Both peers get their backpack state pushed by modify_item_inventory. */
-    static void transfer(::peer &from, ::peer &to)
+    /* move every offered stack from one backpack to the other, each with the flying-item
+       visual and a staggered sound. Offers are reservations kept in trade.items (they never
+       left the backpack), so the sender is debited here - clamped to what is still actually
+       held and to what the receiver can hold (200 per entry). time_cursor is shared across
+       both directions so the flights queue at 450ms steps (retail cadence);
+       both peers get their backpack state pushed by modify_item_inventory. */
+    static void transfer(::peer &from, ::peer &to, int &time_cursor)
     {
         if (&from == &to) return;
         ENetPeer *ep_from = peer_of(from);
@@ -260,8 +333,14 @@ namespace trade
             const u_short excess = modify_item_inventory(ev_to, ::slot(offer.id, static_cast<short>(move)));
             modify_item_inventory(ev_from, ::slot(offer.id, static_cast<short>(-move)));
 
-            printf("[trade] transferred %d x%d %s -> %s%s\n",
-                   offer.id, move, from.growid.c_str(), to.growid.c_str(),
+            /* the item icon flies sender -> receiver; sounds land with the flight */
+            time_cursor += 450;
+            send_fly(from, to, offer.id, time_cursor);
+            play_sfx_for(from, "change_clothes.wav", time_cursor);
+            play_sfx_for(to, "change_clothes.wav", time_cursor);
+
+            printf("[trade] transferred %d x%d %s -> %s (fly @%dms)%s\n",
+                   offer.id, move, from.growid.c_str(), to.growid.c_str(), time_cursor,
                    (move < offer.count) ? " (clamped: held/backpack limit)" : "");
             if (excess) on::ConsoleMessage(ep_to, "`4Your backpack is full - some items were left behind.``");
         }
@@ -332,7 +411,7 @@ namespace trade
 
         if (accepted && partner.trade.accepted)
         {
-            /* both sides accepted: validate, then move every offered stack, then force-close */
+            /* both sides accepted: validate, then hand over to the confirmation stage */
             std::string reason = check_items(p, partner);
             if (reason.empty()) reason = check_items(partner, p);
 
@@ -351,33 +430,101 @@ namespace trade
                 return;
             }
 
-            transfer(p, partner);      // partner receives what p offered
-            transfer(partner, p);      // p receives what partner offered
-
+            /* @note retail flow: the trade WINDOWS close here (OnForceTradeEnd) and each side
+               gets the "Trade Confirmation" dialog. Nothing moves until both press
+               "Do The Trade!" (trade::confirm_offer). */
             ENetPeer *ea = peer_of(p);
             ENetPeer *eb = peer_of(partner);
-            if (ea != nullptr) on::ConsoleMessage(ea, "`2Trade completed!``");
-            if (eb != nullptr) on::ConsoleMessage(eb, "`2Trade completed!``");
-            play_sfx_for(p, "success.wav");
-            play_sfx_for(partner, "success.wav");
-
-            /* @note the client animates the item swap when it sees BOTH sides accepted, and
-               the offers leaving the panels is a state change it renders (the render loop
-               eases item widgets toward their targets). Two-phase finish:
-                 1. now      : final status WITH the offers + both accepted (swap cue)
-                 2. +1s      : flush - empty offer panels (items "leave the slots")
-                 3. +4s      : sweep() force-closes the windows
-               Input stays locked throughout (close_at). */
-            p.trade.close_at = ticks() + 4u;
-            partner.trade.close_at = p.trade.close_at;
-            p.trade.flush_at = ticks() + 1u;
-            partner.trade.flush_at = p.trade.flush_at;
-            send_status(p);
-            send_status(partner);
-            printf("[trade] completed: items moved, offers flush in ~1s, windows close in ~4s\n");
+            if (ea != nullptr) send_varlist(ea, { "OnForceTradeEnd" });
+            if (eb != nullptr) send_varlist(eb, { "OnForceTradeEnd" });
+            p.trade.confirm = false;
+            partner.trade.confirm = false;
+            send_confirm_dialog(p);
+            send_confirm_dialog(partner);
+            printf("[trade] both accepted - windows closed, confirmation dialogs sent\n");
             return;
         }
         refresh(p);
+    }
+
+    /* @note "Do The Trade!" from the confirmation dialog (retail: accept_the_offer). Flags
+       this side; the first confirmer only hears "waiting for the other player". Once BOTH
+       confirmed the trade is re-validated and paid out: items move and each stack flies from
+       sender to receiver (see transfer/send_fly), with the world announcement and the
+       keypad_hit sound at 1250ms. */
+    void confirm_offer(::peer &p)
+    {
+        if (p.trade.partner == nullptr)
+        {
+            /* stale confirmation press after the trade already died */
+            ENetPeer *ep = peer_of(p);
+            if (ep != nullptr) send_varlist(ep, { "OnTextOverlay", "The other person left the trade!" });
+            return;
+        }
+        if (rate_limited(p)) return;
+        if (p.trade.confirm) return; // @note ignore repeat presses
+
+        ::peer &partner = *p.trade.partner;
+        p.trade.confirm = true;
+
+        ENetPeer *ea = peer_of(p);
+        ENetPeer *eb = peer_of(partner);
+        if (ea != nullptr) on::ConsoleMessage(ea, "`6[``Trade accepted, waiting for other player to accept``6]``");
+        if (eb != nullptr && !partner.trade.confirm)
+            on::ConsoleMessage(eb, "`6[``Trade accepted by other player, waiting for you``6]``");
+        printf("[trade] %s confirmed the trade (partner confirmed=%d)\n",
+               p.growid.c_str(), partner.trade.confirm);
+        if (!partner.trade.confirm) return;
+
+        /* both pressed "Do The Trade!" - final validation on fresh inventory state */
+        std::string reason = check_items(p, partner);
+        if (reason.empty()) reason = check_items(partner, p);
+        if (!reason.empty())
+        {
+            if (ea != nullptr) send_varlist(ea, { "OnTextOverlay", reason });
+            if (eb != nullptr) send_varlist(eb, { "OnTextOverlay", reason });
+            play_sfx_for(p, "bleep_fail.wav");
+            play_sfx_for(partner, "bleep_fail.wav");
+            printf("[trade] final payout check refused: %s\n", reason.c_str());
+            partner.trade = {};
+            p.trade = {}; // @note windows are already closed - just clear both states
+            return;
+        }
+
+        /* pay out: p's offers fly to the partner first, then the partner's offers */
+        int cursor = 0;
+        transfer(p, partner, cursor);
+        transfer(partner, p, cursor);
+
+        /* world announcement - everyone sees who traded what */
+        auto summary = [](const ::peer &who)
+        {
+            std::string s{};
+            for (const ::slot &item : who.trade.items)
+            {
+                if (!s.empty()) s += ", ";
+                s += std::format("{} {}", item.count, id_to_item(item.id).raw_name);
+            }
+            return s.empty() ? std::string("nothing") : s;
+        };
+        const std::string p_gives = summary(p);
+        const std::string b_gives = summary(partner);
+        const std::string p_name = p.growid;
+        const std::string b_name = partner.growid;
+        peers(p.recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer &other)
+        {
+            on::ConsoleMessage(&other, std::format("`1{} traded {} to {}.``", b_name, b_gives, p_name));
+            on::ConsoleMessage(&other, std::format("`1{} traded {} to {}.``", p_name, p_gives, b_name));
+        });
+
+        if (ea != nullptr) on::ConsoleMessage(ea, "`2Trade completed!``");
+        if (eb != nullptr) on::ConsoleMessage(eb, "`2Trade completed!``");
+        play_sfx_for(p, "keypad_hit.wav", 1250);
+        play_sfx_for(partner, "keypad_hit.wav", 1250);
+
+        partner.trade = {};
+        p.trade = {};
+        printf("[trade] payout complete (%dms of flying items), both trades cleared\n", cursor);
     }
 
     void set_lock(::peer &p, bool locked)
@@ -401,9 +548,15 @@ namespace trade
         ENetPeer *ea = peer_of(p);
         printf("[trade] end (%s): %s <-> %s\n", reason, p.growid.c_str(), partner.growid.c_str());
 
-        /* @note the side watching gets told who walked away (retail behaviour) */
-        if (std::string_view(reason) == "cancel" && eb != nullptr)
-            send_varlist(eb, { "OnTextOverlay", std::format("{} has canceled the trade", p.growid) });
+        /* @note retail cancel UX: both sides get the console line + overlay naming whoever
+           walked away (reference: ReU GrowTavern cancel_trade). */
+        if (std::string_view(reason) == "cancel")
+        {
+            const std::string msg = std::format("`6[```4Trade canceled by {}!```6]``", p.growid);
+            if (eb != nullptr) send_varlist(eb, { "OnTextOverlay", msg });
+            if (ea != nullptr) on::ConsoleMessage(ea, msg);
+            if (eb != nullptr) on::ConsoleMessage(eb, msg);
+        }
         if (std::string_view(reason) != "completed")
         {
             play_sfx_for(p, "dialog_cancel.wav");

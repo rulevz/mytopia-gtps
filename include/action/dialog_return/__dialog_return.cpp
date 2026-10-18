@@ -11,7 +11,7 @@
 #include "socialportal.hpp"
 #include "megaphone.hpp"
 #include "trade_item.hpp"
-#include "trade_accept.hpp"
+#include "trade_confirm.hpp"
 
 #include "__dialog_return.hpp"
 
@@ -34,5 +34,5 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"socialportal", std::bind(&socialportal, std::placeholders::_1, std::placeholders::_2)},
     {"megaphone", std::bind(&megaphone, std::placeholders::_1, std::placeholders::_2)},
     {"trade_item", std::bind(&trade_item, std::placeholders::_1, std::placeholders::_2)},
-    {"trade_accept", std::bind(&trade_accept, std::placeholders::_1, std::placeholders::_2)},
+    {"trade_confirm", std::bind(&trade_confirm, std::placeholders::_1, std::placeholders::_2)},
 };

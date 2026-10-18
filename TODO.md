@@ -72,14 +72,19 @@ client before the items parser is upgraded (see P2).
       a refusal tells BOTH players why and moves nothing; accepting is gated ~1s after an
       offer change (anti-scam swap); an offer change under an accepted deal sends
       "The deal has changed." + the tile_removed SFX; a cancel tells the other side who
-      walked away. Disconnect/leave ends an active trade before the peer object dies. COMPLETION
-      ANIMATION: after both accept the windows are held open ~4s (final OnTradeStatus with both
-      sides accepted, input locked via peer_trade.close_at, then trade::sweep() in the main loop
-      sends OnForceTradeEnd) so the client can play its own item-swap animation - the previous
-      immediate OnForceTradeEnd destroyed the window and cut that animation off. FINISH is
-      TWO-PHASE: +1s the offers are flushed from both panels (trade.flush_at -> sweep clears
-      trade.items + refresh; the slots visibly empty out, which is itself a rendered state
-      change), +4s the windows close. SFX on
+      walked away. Disconnect/leave ends an active trade before the peer object dies. RETAIL
+      FLOW (ported from the ReU/GrowTavern server source): both sides TICK accept -> the trade
+      windows close (OnForceTradeEnd both) and each side gets the "Trade Confirmation" dialog
+      (You'll give / You'll get rows + SCAM WARNING when receiving nothing; buttons
+      accept="Do The Trade!" / back="Cancel", dialog_name trade_confirm). Nothing moves until
+      BOTH pressed "Do The Trade!" (peer_trade.confirm = accept_the_offer); then the payout
+      re-validates and moves each stack per offer. THE FLYING ITEMS (the retail "item melayang")
+      are a 56-byte PlayerMoving broadcast per stack: type=0x03000013 (u8 type=19,
+      punchRange=3), netid=receiver, target(+8)=sender, info=duration in ms, punchX=punchY=
+      itemID; flights are staggered 450ms across both directions with change_clothes.wav landed
+      at each step, followed by keypad_hit.wav at 1250ms and a world-wide
+      "X traded N Item to Y." announcement. Cancel "back" / trade_cancel / leave sends both
+      sides "Trade canceled by X!" (console+overlay) + dialog_cancel SFX. SFX on
       every event (play_sfx text action, names from the reference audio set): page_turn on
       the confirm dialog, use_lock on lock, bloop on confirmed accept, success on completion,
       dialog_cancel on cancel/leave, bleep_fail on refusals. ANTI-EXPLOIT HARDENING: new offer

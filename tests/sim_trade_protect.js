@@ -141,17 +141,18 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
 
   // --- 4) accept race: fire the confirm twice, trade must complete once ---
   await wait(1300); // @note accept gate after the last offer change
-  A.send("action|trade_accept\nstatus|1\n"); await wait(600);
-  A.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n"); await wait(300);
-  A.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n"); await wait(300); // race repeat
-  B.send("action|trade_accept\nstatus|1\n"); await wait(600);
-  B.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n"); await wait(300);
-  B.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n"); await wait(4500); // race repeat
+  A.send("action|trade_accept\nstatus|1\n"); await wait(400);
+  B.send("action|trade_accept\nstatus|1\n"); await wait(900); // both accepted -> confirmation dialogs
+  check("windows closed at both-accept",
+    A.replies.some((r) => r.includes("OnForceTradeEnd")) && B.replies.some((r) => r.includes("OnForceTradeEnd")));
+  A.send("action|dialog_return\ndialog_name|trade_confirm\nbuttonClicked|accept\n"); await wait(250);
+  A.send("action|dialog_return\ndialog_name|trade_confirm\nbuttonClicked|accept\n"); await wait(250); // race repeat
+  B.send("action|dialog_return\ndialog_name|trade_confirm\nbuttonClicked|accept\n"); await wait(250);
+  B.send("action|dialog_return\ndialog_name|trade_confirm\nbuttonClicked|accept\n"); await wait(2500); // race repeat
   const completions = A.replies.filter((r) => r.includes("Trade completed")).length;
   console.log(`[sim] A saw "Trade completed" x${completions}`);
   check("trade completed exactly once", completions === 1);
-  check("both windows closed after completion",
-    A.replies.some((r) => r.includes("OnForceTradeEnd")) && B.replies.some((r) => r.includes("OnForceTradeEnd")));
+  check("A got the flying-item visual on payout", A.replies.join("").includes("\x13\x00\x00\x03"));
 
   const failed = checks.filter(([, ok]) => !ok).length;
   console.log(`RESULT: ${checks.length - failed}/${checks.length} checks passed, packets A=${A.replies.length} B=${B.replies.length}`);

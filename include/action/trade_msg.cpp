@@ -78,57 +78,10 @@ void action::trade_accept(ENetEvent& event, const std::string& header)
 
     if (pPeer->trade.partner == nullptr) return;
 
-    /* @note modern confirmation dialog: popup title, deal header, one icon row per offered
-       stack on both sides, warnings, and a labelled Cancel/Accept pair. Every command here
-       is already proven to render on the phone (wrench menu / gazette / drop dialogs use
-       add_popup_name, add_custom_break, add_smalltext, add_label_with_icon, end_dialog).
-       The client answers dialog_return -> dialog_name|trade_accept (+ buttonClicked). */
-    const ::peer &partner = *pPeer->trade.partner;
-
-    /* one icon row per offered stack, built only from commands this client renders well
-       (add_label_with_icon is what the wrench menu / gazette already use). The heavy widgets
-       (add_button_with_icon tiles, add_player_info blocks) looked cluttered in a small
-       dialog, so the rows stay label-based with the real item icon. */
-    auto rows_of = [](const ::peer &who)
-    {
-        std::string rows{};
-        for (const ::slot &slot : who.trade.items)
-            rows += std::format("add_label_with_icon|small|`w{}`` `ox{}``|left|{}|\n",
-                                id_to_item(slot.id).raw_name, slot.count, slot.id);
-        if (rows.empty()) rows = "add_smalltext|`8- nothing offered -``|left|\n";
-        return rows;
-    };
-
-    auto stack_note = [](const ::peer &who)
-    {
-        const std::size_t n = who.trade.items.size();
-        return std::format("({} stack{})", n, n == 1 ? "" : "s");
-    };
-
-    send_varlist(event.peer, {
-        "OnDialogRequest",
-        std::format(
-            "set_default_color|`o\n"
-            "add_popup_name|TradeConfirm\n"
-            "add_label_with_icon|big|`wAccept this trade?``|left|9640|\n"
-            "add_smalltext|`oDeal between `w{}`` and `w{}`` - review both sides before it becomes final.``|left|\n"
-            "add_custom_break|\n"
-            "add_textbox|`2You give:`` `8{}``|left|\n"
-            "{}"
-            "add_spacer|small|\n"
-            "add_textbox|`2You get:`` `8{}``|left|\n"
-            "{}"
-            "add_custom_break|\n"
-            "add_smalltext|`4Once both sides accept the trade is final - items cannot be recovered.``|left|\n"
-            "add_smalltext|`5Tip: tap Lock first if you need a moment to double-check.``|left|\n"
-            "end_dialog|trade_accept|Cancel|Accept Trade|\n",
-            pPeer->growid, partner.growid,
-            stack_note(*pPeer), rows_of(*pPeer),
-            stack_note(partner), rows_of(partner)
-        )
-    });
-    trade::play_sfx_for(*pPeer, "page_turn.wav");
-    printf("[trade] %s tapped accept - confirmation dialog sent\n", pPeer->growid.c_str());
+    /* @note the accept TICK only marks this side (retail flow). Once BOTH sides ticked,
+       trade::set_accept closes the windows and opens the "Trade Confirmation" dialog -
+       nothing moves until both press "Do The Trade!" (dialog_return trade_confirm). */
+    trade::set_accept(*pPeer, true);
 }
 
 void action::trade_lock(ENetEvent& event, const std::string& header)
