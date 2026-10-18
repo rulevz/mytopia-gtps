@@ -142,6 +142,13 @@ namespace trade
         if (count <= 0) count = 1;
         if (count > 32767) count = 32767;
 
+        /* an offer is a reservation: it must fit within what the player actually holds */
+        int held = 0;
+        for (const ::slot &s : p.slots)
+            if (s.id == itemID) held += s.count;
+        if (count > held) count = held;
+        if (count <= 0) return;
+
         bool replaced = false;
         for (::slot &s : p.trade.items)
             if (s.id == itemID) { s.count = static_cast<short>(count); replaced = true; break; }
@@ -164,6 +171,47 @@ namespace trade
         refresh(p);
     }
 
+    /* how many more of itemID the backpack can accept (each entry caps at 200) */
+    static int room_for(const ::peer &p, int itemID)
+    {
+        auto it = std::ranges::find(p.slots, static_cast<short>(itemID), &::slot::id);
+        if (it == p.slots.end()) return 200;
+        return std::max(0, 200 - static_cast<int>(it->count));
+    }
+
+    /* move every offered stack from one backpack to the other.
+       Offers are reservations kept in trade.items (they never left the backpack), so the
+       sender is debited here - clamped to what is still actually held (the player may have
+       spent/dropped items mid-trade) and to what the receiver can hold (200 per entry).
+       Both peers get their backpack state pushed by modify_item_inventory. */
+    static void transfer(::peer &from, ::peer &to)
+    {
+        ENetPeer *ep_from = peer_of(from);
+        ENetPeer *ep_to = peer_of(to);
+        if (ep_from == nullptr || ep_to == nullptr) return;
+
+        ENetEvent ev_from{}; ev_from.peer = ep_from;
+        ENetEvent ev_to{};   ev_to.peer   = ep_to;
+
+        for (const ::slot &offer : from.trade.items)
+        {
+            int held = 0;
+            for (const ::slot &s : from.slots)
+                if (s.id == offer.id) held += s.count;
+
+            const int move = std::min({ static_cast<int>(offer.count), held, room_for(to, offer.id) });
+            if (move <= 0) continue;
+
+            const u_short excess = modify_item_inventory(ev_to, ::slot(offer.id, static_cast<short>(move)));
+            modify_item_inventory(ev_from, ::slot(offer.id, static_cast<short>(-move)));
+
+            printf("[trade] transferred %d x%d %s -> %s%s\n",
+                   offer.id, move, from.growid.c_str(), to.growid.c_str(),
+                   (move < offer.count) ? " (clamped: held/backpack limit)" : "");
+            if (excess) on::ConsoleMessage(ep_to, "`4Your backpack is full - some items were left behind.``");
+        }
+    }
+
     void set_accept(::peer &p, bool accepted)
     {
         if (p.trade.partner == nullptr) return;
@@ -175,11 +223,14 @@ namespace trade
 
         if (accepted && partner.trade.accepted)
         {
-            /* v1: no item transfer yet - close + tell both, so the flow is observable */
+            /* both sides accepted: move every offered stack, then force-close */
+            transfer(p, partner);      // partner receives what p offered
+            transfer(partner, p);      // p receives what partner offered
+
             ENetPeer *ea = peer_of(p);
-            if (ea != nullptr) on::ConsoleMessage(ea, "`2Trade completed!`` (capture build - items not transferred yet)");
             ENetPeer *eb = peer_of(partner);
-            if (eb != nullptr) on::ConsoleMessage(eb, "`2Trade completed!`` (capture build - items not transferred yet)");
+            if (ea != nullptr) on::ConsoleMessage(ea, "`2Trade completed!``");
+            if (eb != nullptr) on::ConsoleMessage(eb, "`2Trade completed!``");
             end(p, "completed", true);
             return;
         }

@@ -1,15 +1,16 @@
 #pragma once
 
-/* Capture-first trade implementation (P1).
+/* Trade implementation (P1).
  *
- * Wire formats follow the community reference (keichira/GTopia): OnStartTrade /
- * OnTradeStatus / OnForceTradeEnd varlists + the "slot|i|id|count / accepted|0|1 /
- * locked|0|1" status text. These still need validation against a real 5.57 client -
- * that is exactly what the gtproxy capture session is for (tools/gtproxy/README.md).
+ * Wire formats verified against a real 5.57 client (gtproxy captures + libgrowtopia.so
+ * disassembly): OnStartTrade / OnTradeStatus / OnForceTradeEnd varlists, the status data
+ * "add_slot|id|count + locked|0|1 + accepted|0|1", and the rule that the first argument
+ * (netid) SELECTS the offer panel (own netid -> own panel via arg2 caption, partner netid
+ * -> partner panel via arg3 caption).
  *
- * v1 scope: the client-side flow works (window, offer, lock, accept, cancel) and
- * every client message is logged for captures, but a completed trade does NOT
- * transfer items yet (see [trade] logs). */
+ * A completed trade moves the offered stacks between the two backpacks (trade::transfer):
+ * offers are reservations until both sides accept, then the sender is debited and the
+ * receiver credited. */
 
 namespace trade
 {

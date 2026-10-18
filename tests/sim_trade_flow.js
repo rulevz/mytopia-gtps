@@ -114,6 +114,15 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   const afterRem = B.replies.slice(markB).join("\n"); // only packets sent after the removal
   check("B's view after removal has no 1050 offer", !afterRem.includes("add_slot|1050"));
 
+  console.log("[A] re-offer 1050 x2 so the trade completes WITH an offer (item transfer)");
+  const markB2 = B.replies.length;
+  A.send("action|mod_trade\nitemID|1050\n");
+  await wait(600);
+  A.send("action|dialog_return\ndialog_name|trade_item\nitemID|1050\ncount|2\n");
+  await wait(600);
+  check("B sees the re-offer add_slot|1050|2",
+    B.replies.slice(markB2).some((r) => r.includes("add_slot|1050|2")));
+
   console.log("[B] lock 1; both accept");
   B.send("action|trade_lock\nstatus|1\n");
   await wait(400);
@@ -124,6 +133,7 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   await wait(900);
   check("A got OnForceTradeEnd (completion)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
   check("B got OnForceTradeEnd (completion)", B.replies.some((r) => r.includes("OnForceTradeEnd")));
+  check("A told the trade completed", A.replies.some((r) => r.includes("Trade completed")));
 
   // --- trade #2: cancel path ---
   console.log("[A] start trade again, then cancel");

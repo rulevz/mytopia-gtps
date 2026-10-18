@@ -45,6 +45,7 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
   let sawNetId = false;
   let announced = false;
   let sentAccept = false;
+  let answeredDialog = false;
 
   client.emitter.on("connect", (peer) => {
     const parts = [
@@ -84,13 +85,29 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
       }
       // auto-accept trades: when the partner's offer panel shows they accepted,
       // accept back after a short delay so the full trade cycle can complete
-      if (!sentAccept && s.includes("'s offer") && s.includes("accepted|1")) {
+      if (!sentAccept && s.includes("'s offer") && !s.includes("Your offer") && s.includes("accepted|1")) {
         sentAccept = true;
         console.log(">> partner accepted - accepting back in 3.5s");
         setTimeout(() => {
           textPacket(peer, "action|trade_accept\nstatus|1\n");
           console.log(">> auto-accepted the trade");
         }, 3500);
+      }
+      // put a stack on the table too, so phone trades actually receive something
+      // (the account is seeded with 1050 x5 - see the [trade] test notes)
+      if (s.includes("OnStartTrade")) {
+        sentAccept = false; answeredDialog = false; // fresh trade, fresh flags
+        setTimeout(() => {
+          console.log(">> offering 1050 x5");
+          textPacket(peer, "action|mod_trade\nitemID|1050\n");
+        }, 1500);
+      }
+      if (!answeredDialog && s.includes("end_dialog|trade_item")) {
+        answeredDialog = true;
+        setTimeout(() => {
+          textPacket(peer, "action|dialog_return\ndialog_name|trade_item\nitemID|1050\ncount|5\n");
+          console.log(">> offer confirmed (1050 x5)");
+        }, 800);
       }
     } catch (e) {}
   });
