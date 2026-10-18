@@ -1,6 +1,8 @@
 #include "pch.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 
+#include <cstdlib>
+
 #include "trade.hpp"
 
 namespace trade
@@ -43,6 +45,28 @@ namespace trade
             data += std::format("accepted|{}\n", who.trade.accepted ? 1 : 0);
             return data;
         };
+
+        /* @note temporary marker mode for panel mapping (GUROTOPIA_TRADE_MARKERS=1):
+           distinctly recognizable items in each channel + a unique caption, so the
+           player can report which channel renders where. Remove once pinned. */
+        if (std::getenv("GUROTOPIA_TRADE_MARKERS") != nullptr)
+        {
+            send_varlist(ep, {
+                "OnTradeStatus",
+                static_cast<signed>(partner.netid),
+                "",
+                "",
+                "add_slot|2|2\nlocked|0\naccepted|0\n"          // channel A: dirt
+            });
+            send_varlist(ep, {
+                "OnTradeStatus",
+                static_cast<signed>(partner.netid),
+                " ",
+                "MARK-CAP-9",
+                "add_slot|9640|1\nlocked|0\naccepted|0\n"       // channel B: world lock
+            });
+            return;
+        }
 
         /* own panel: empty 2nd arg -> the recipient's own offer */
         send_varlist(ep, {
