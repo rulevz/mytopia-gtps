@@ -28,9 +28,12 @@ namespace trade
              locked|<0|1>
              accepted|<0|1>
              reset_locks|1               (optional)
-           The client fills one panel per packet: an EMPTY 2nd arg targets one panel,
-           a NON-EMPTY 2nd arg (must carry the partner's netid) targets the other.
-           We fill both panels with their own data each refresh. */
+           The client fills ONE panel per packet: an EMPTY 2nd arg targets the
+           recipient's own panel, a NON-EMPTY 2nd arg (must carry the partner's
+           netid / 3rd arg = partner caption) targets the partner panel.
+           (Panel mapping confirmed empirically on the 5.57 client: this side
+           swaps what the first draft assumed - the tapped item showed up in the
+           partner panel.) */
         auto build = [](const ::peer &who)
         {
             std::string data{};
@@ -41,22 +44,22 @@ namespace trade
             return data;
         };
 
-        /* panel A: empty 2nd arg -> partner's offer data */
+        /* own panel: empty 2nd arg -> the recipient's own offer */
         send_varlist(ep, {
             "OnTradeStatus",
             static_cast<signed>(partner.netid),
             "",
             "",
-            build(partner)
+            build(p)
         });
 
-        /* panel B: non-empty 2nd arg -> recipient's own offer data */
+        /* partner panel: non-empty 2nd arg -> the partner's offer (+ caption) */
         send_varlist(ep, {
             "OnTradeStatus",
             static_cast<signed>(partner.netid),
             " ",
             std::format("{}'s offer.``", partner.growid),
-            build(p)
+            build(partner)
         });
     }
 
