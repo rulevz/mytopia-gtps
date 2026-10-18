@@ -61,3 +61,10 @@ void action::trade_started(ENetEvent& event, const std::string& header)
     /* the client uses this to confirm it opened the window - re-push current state */
     if (pPeer->trade.partner != nullptr) trade::refresh(*pPeer);
 }
+
+void action::trade_check_price(ENetEvent& event, const std::string& header)
+{
+    ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+    printf("[trade] %s check_price (%.80s)\n", pPeer->growid.c_str(), header.c_str());
+    /* @todo reply once the expected packet shape is known (observed from real client) */
+}

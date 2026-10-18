@@ -22,23 +22,37 @@ namespace trade
 
         ::peer &partner = *p.trade.partner;
 
-        /* the partner panel is the one the client cannot render locally (it only
-           knows its own offer), so itemData describes THE PARTNER's offer:
-           slot|<index>|<itemID>|<count>, then accepted|<0|1>, locked|<0|1>.
-           (semantics pending phone validation via gtproxy capture) */
-        std::string items{};
+        /* two packets per refresh (semantics still being pinned by real-client captures):
+           1) the PARTNER's offer  - partnerNetID + "X's offer.``" label + partner's slots
+           2) the RECIPIENT's own offer - own netID + "Your offer.``" + own slots
+           status text: slot|<index>|<itemID>|<count>\n ... accepted|<0|1> locked|<0|1> */
+        std::string partnerItems{};
         for (std::size_t i = 0; i < partner.trade.items.size(); ++i)
-            items += std::format("slot|{}|{}|{}\n", i, partner.trade.items[i].id, partner.trade.items[i].count);
-        items += std::format("accepted|{}\n", partner.trade.accepted ? 1 : 0);
-        items += std::format("locked|{}\n", partner.trade.locked ? 1 : 0);
+            partnerItems += std::format("slot|{}|{}|{}\n", i, partner.trade.items[i].id, partner.trade.items[i].count);
+        partnerItems += std::format("accepted|{}\n", partner.trade.accepted ? 1 : 0);
+        partnerItems += std::format("locked|{}\n", partner.trade.locked ? 1 : 0);
 
         send_varlist(ep, {
             "OnTradeStatus",
             static_cast<signed>(partner.netid),
             "",
             std::format("{}'s offer.``", partner.growid),
-            items
-        }); // @note netid -1: UI-level call, not attached to a spawned entity
+            partnerItems
+        });
+
+        std::string ownItems{};
+        for (std::size_t i = 0; i < p.trade.items.size(); ++i)
+            ownItems += std::format("slot|{}|{}|{}\n", i, p.trade.items[i].id, p.trade.items[i].count);
+        ownItems += std::format("accepted|{}\n", p.trade.accepted ? 1 : 0);
+        ownItems += std::format("locked|{}\n", p.trade.locked ? 1 : 0);
+
+        send_varlist(ep, {
+            "OnTradeStatus",
+            static_cast<signed>(p.netid),
+            "",
+            "Your offer.``",
+            ownItems
+        });
     }
 
     void refresh(::peer &p)

@@ -56,10 +56,12 @@ client before the items parser is upgraded (see P2).
 - [ ] Verify item rendering with the served items.dat (0x1a) on 5.57
 - [~] Trade system: capture-first implementation live — wrench→Trade → `OnStartTrade` /
       `OnTradeStatus` / `OnForceTradeEnd` (formats from community RE, keichira/GTopia);
-      client msgs mod_trade/rem_trade/trade_accept/trade_lock/trade_cancel handled +
-      logged; `tests/sim_trade_flow.js` 11/11 + `tests/sim_stander.js` for phone
-      sessions. Pending: validate formats vs a real 5.57 client (gtproxy capture),
-      item transfer on completion (currently stub), leave/disconnect edge polish
+      real 5.57 client session (gtproxy capture) VALIDATED the client messages verbatim:
+      mod_trade|itemID, trade_started|netid, trade_accept|status, trade_lock, trade_cancel,
+      trade_check_price (all handled + logged); OnTradeStatus now serves both the partner's
+      offer and the recipient's own offer per refresh (display semantics being iterated on
+      the phone). Pending: own-panel display confirmation, item transfer on completion
+      (currently stub), leave/disconnect edge polish
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate

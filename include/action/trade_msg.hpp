@@ -12,4 +12,5 @@ namespace action
     extern void trade_lock(ENetEvent&, const std::string&);
     extern void trade_cancel(ENetEvent&, const std::string&);
     extern void trade_started(ENetEvent&, const std::string&);
+    extern void trade_check_price(ENetEvent&, const std::string&);
 }

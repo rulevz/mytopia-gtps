@@ -60,6 +60,7 @@ std::unordered_map<std::string, std::function<void(ENetEvent&, const std::string
     {"action|trade_lock", std::bind(&action::trade_lock, std::placeholders::_1, std::placeholders::_2)},
     {"action|trade_cancel", std::bind(&action::trade_cancel, std::placeholders::_1, std::placeholders::_2)},
     {"action|trade_started", std::bind(&action::trade_started, std::placeholders::_1, std::placeholders::_2)},
+    {"action|trade_check_price", std::bind(&action::trade_check_price, std::placeholders::_1, std::placeholders::_2)},
 
     {"action|quit", std::bind(&action::quit, std::placeholders::_1, std::placeholders::_2)}
 };
