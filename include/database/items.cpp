@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include <filesystem>
 #include <fstream>
+#include <zlib.h>
 
 #include "items.hpp"
 
@@ -15,6 +16,18 @@ const ::item &id_to_item(u_short id) noexcept // @note std::out_of_range is hand
 
 
 std::vector<u_char> im_data(sizeof(::gamePacket)/*inital packet*/, 0x00);
+
+u_int items_dat_hash{}; // @note rttex hash of the RAW items.dat (advertised at logon)
+
+/* Growtopia's file hash (rttex/cache validation): h = 0x55555555;
+   for every byte: h = (h >> 27) + (h << 5) + byte, with uint32 wrap-around. */
+static u_int rttex_hash(const u_char *data, std::size_t size) noexcept
+{
+    u_int hash = 0x55555555;
+    for (std::size_t i = 0ull; i < size; ++i)
+        hash = (hash >> 27) + (hash << 5) + data[i];
+    return hash;
+}
 
 template<typename T>
 void shift_pos(const std::vector<u_char> &data, u_int &pos, T &value) noexcept // @note std::out_of_range is handled
@@ -45,13 +58,11 @@ void data_modify(std::vector<u_char> &data, const u_int &pos, const T &value) no
 void decode_items()
 {
     const u_int size = std::filesystem::file_size("items.dat");
-    im_data = compress_state(::gamePacket{ .type = 0x10,/*PACKET_SEND_ITEM_DATABASE_DATA*/ .state = state::S_EXTENDED, .size = size }).data();
-    
-    u_int pos = im_data.size(); // @note sizeof(::gamePacket)
-    im_data.resize(pos + size); // @note resize to fit binary data
-    
+    im_data.assign(size, 0x00); // @note the raw file bytes live here while we parse/patch
     std::ifstream("items.dat", std::ios::binary)
-        .read((char*)&im_data[pos], size); // @note the binary data···
+        .read(reinterpret_cast<char*>(im_data.data()), size); // @note the binary data···
+
+    u_int pos = 0; // @note parse straight from the file bytes
 
     u_short version{};
     shift_pos(im_data, pos, version);
@@ -212,5 +223,26 @@ void decode_items()
         
         items.emplace_back(item);
     }
-    printf("items.dat parsed successfully! (%u items, format 0x%02x)\n", count, version);
+    /* @note what the client actually receives: tank header + DEFLATE(raw file) - modern
+       servers (GrowServer/GTopia) compress it, and the client inflates it. The hash we
+       advertise at logon must be the hash of the RAW file: otherwise the client believes
+       its cached copy is stale and asks to "update items" on every single login. */
+    items_dat_hash = rttex_hash(im_data.data(), im_data.size());
+
+    uLongf compressed_size = compressBound(size);
+    std::vector<u_char> compressed(compressed_size);
+    if (compress2(compressed.data(), &compressed_size, im_data.data(), im_data.size(), Z_DEFAULT_COMPRESSION) != Z_OK)
+        puts("items.dat: compression failed - the client refresh payload would be wrong");
+    compressed.resize(compressed_size);
+
+    im_data = compress_state(::gamePacket{
+        .type  = 0x10, // @note PACKET_SEND_ITEM_DATABASE_DATA
+        .netid = -1,
+        .state = state::S_EXTENDED,
+        .size  = static_cast<u_int>(compressed.size())
+    }).data();
+    im_data.insert(im_data.end(), compressed.begin(), compressed.end());
+
+    printf("items.dat parsed successfully! (%u items, format 0x%02x, hash %u, %zu -> %zu bytes)\n",
+           count, version, items_dat_hash, static_cast<std::size_t>(size), compressed.size());
 }
