@@ -46,6 +46,7 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
   let announced = false;
   let sentAccept = false;
   let answeredDialog = false;
+  let answeredConfirm = false;
 
   client.emitter.on("connect", (peer) => {
     const parts = [
@@ -96,11 +97,19 @@ function tankPacket(peer, type, id, posX, posY, punchX, punchY, state) {
       // put a stack on the table too, so phone trades actually receive something
       // (the account is seeded with 1050 x5 - see the [trade] test notes)
       if (s.includes("OnStartTrade")) {
-        sentAccept = false; answeredDialog = false; // fresh trade, fresh flags
+        sentAccept = false; answeredDialog = false; answeredConfirm = false; // fresh trade, fresh flags
         setTimeout(() => {
           console.log(">> offering 1050 x5");
           textPacket(peer, "action|mod_trade\nitemID|1050\n");
         }, 1500);
+      }
+      // the server asks for confirmation when we tap accept - answer it
+      if (!answeredConfirm && s.includes("end_dialog|trade_accept")) {
+        answeredConfirm = true;
+        setTimeout(() => {
+          textPacket(peer, "action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
+          console.log(">> confirmed accepting the trade");
+        }, 400);
       }
       if (!answeredDialog && s.includes("end_dialog|trade_item")) {
         answeredDialog = true;

@@ -128,9 +128,22 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   B.send("action|trade_lock\nstatus|1\n");
   await wait(400);
   check("A sees partner locked|1", A.replies.some((r) => r.includes("locked|1")));
+
+  console.log("[A] tap accept -> confirmation dialog -> confirm");
   A.send("action|trade_accept\nstatus|1\n");
-  await wait(300);
+  await wait(700);
+  check("accept asks for confirmation",
+    A.replies.some((r) => r.includes("end_dialog|trade_accept")) && A.replies.some((r) => r.includes("Accept this trade")));
+  check("confirmation lists what A gives",
+    A.replies.some((r) => r.includes("You give:") && !r.includes("You give:`` nothing")));
+  A.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
+  await wait(500);
+
+  console.log("[B] tap accept -> confirm too");
   B.send("action|trade_accept\nstatus|1\n");
+  await wait(700);
+  check("B asked for confirmation too", B.replies.some((r) => r.includes("end_dialog|trade_accept")));
+  B.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
   await wait(900);
   check("A got OnForceTradeEnd (completion)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
   check("B got OnForceTradeEnd (completion)", B.replies.some((r) => r.includes("OnForceTradeEnd")));

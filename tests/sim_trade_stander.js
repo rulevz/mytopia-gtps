@@ -92,6 +92,9 @@ function check(name, cond) { checks.push([name, !!cond]); console.log((cond ? "C
   A.send("action|trade_lock\nstatus|1\n");
   await wait(500);
   A.send("action|trade_accept\nstatus|1\n");
+  await wait(800);
+  check("accept asks for confirmation", A.replies.some((r) => r.includes("end_dialog|trade_accept")));
+  A.send("action|dialog_return\ndialog_name|trade_accept\nbuttonClicked|Accept\n");
   await wait(6000);
   check("trade completed (A got OnForceTradeEnd)", A.replies.some((r) => r.includes("OnForceTradeEnd")));
   check("A told the trade completed", A.replies.some((r) => r.includes("Trade completed")));

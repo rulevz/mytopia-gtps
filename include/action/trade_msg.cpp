@@ -67,7 +67,43 @@ void action::trade_accept(ENetEvent& event, const std::string& header)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
     ::hPipe hPipe{ header };
-    trade::set_accept(*pPeer, as_bool(hPipe["status"]));
+
+    /* unticking accept applies immediately */
+    if (!as_bool(hPipe["status"]))
+    {
+        trade::set_accept(*pPeer, false);
+        return;
+    }
+
+    if (pPeer->trade.partner == nullptr) return;
+
+    /* @note safety net: accepting asks for confirmation first, and the dialog spells out
+       both sides of the deal. The client answers with
+       dialog_return -> dialog_name|trade_accept (+ buttonClicked). */
+    auto offer_of = [](const ::peer &who)
+    {
+        std::string out{};
+        for (const ::slot &slot : who.trade.items)
+        {
+            if (!out.empty()) out += ", ";
+            out += std::format("{} x{}", id_to_item(slot.id).raw_name, slot.count);
+        }
+        return out.empty() ? std::string{ "nothing" } : out;
+    };
+
+    const ::peer &partner = *pPeer->trade.partner;
+    send_varlist(event.peer, {
+        "OnDialogRequest",
+        create_dialog()
+            .set_default_color("`o")
+            .add_label_with_icon("big", "`2Accept this trade?``", 9640)
+            .add_textbox(std::format("`2You give:`` {}", offer_of(*pPeer)))
+            .add_textbox(std::format("`2You get:`` {}", offer_of(partner)))
+            .add_spacer("small")
+            .add_textbox("`4Once both sides accept it cannot be undone.``")
+            .end_dialog("trade_accept", "Cancel", "Accept")
+    });
+    printf("[trade] %s tapped accept - confirmation dialog sent\n", pPeer->growid.c_str());
 }
 
 void action::trade_lock(ENetEvent& event, const std::string& header)

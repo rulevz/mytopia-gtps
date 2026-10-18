@@ -235,10 +235,15 @@ void decode_items()
         puts("items.dat: compression failed - the client refresh payload would be wrong");
     compressed.resize(compressed_size);
 
+    /* @note tank layout (verified against growtopia.js TankPacket, which mirrors the modern
+       client): offset 24 = `info` (our .id) = the UNCOMPRESSED size of the item data, and
+       offset 56 (our .size) = the length of the payload that follows. Leaving info at 0 is
+       what kept the client from ever accepting our payload - so its cache never settled. */
     im_data = compress_state(::gamePacket{
         .type  = 0x10, // @note PACKET_SEND_ITEM_DATABASE_DATA
         .netid = -1,
         .state = state::S_EXTENDED,
+        .id    = static_cast<int>(size), // @note info: uncompressed item-data size
         .size  = static_cast<u_int>(compressed.size())
     }).data();
     im_data.insert(im_data.end(), compressed.begin(), compressed.end());
