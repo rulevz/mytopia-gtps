@@ -79,6 +79,17 @@ Requires `items.dat`, `server_data.php`, `mysql_login.txt` in the working direct
   it showed "updating items" on every launch. The advertised rttex hash is computed over
   exactly the bytes served
 
+## Gameplay additions (this fork)
+- Trade system (wrench -> Trade): offer panels, `trade_item` quantity dialog, two-phase
+  accept + confirm dialog, flying-item payout visual, anti-exploit hardening
+  (`include/automate/trade.cpp`, tests/sim_trade_flow.js, tests/sim_trade_protect.js)
+- Range locks (small/big/huge/builder's): retail claim algorithm, `tile_lock_edit` wrench
+  dialog, SEND_LOCK (0x0f) tile marking, smash releases the area
+  (`include/automate/lock.cpp`, `include/action/dialog_return/tile_lock_edit.cpp`)
+- Golden Booty Chest loot tables: full wiki drop list (Heartstone + GBC share the pool;
+  Super GBC adds its exclusives and rolls the GHC at 4x; 1 Super per 100 smashed GBCs)
+  (`include/automate/loot.cpp`, tests/sim_gbc.js)
+
 ## Packet capture (`tools/gtproxy`)
 
 Our own ENet relay captures what clients send for features the server does not

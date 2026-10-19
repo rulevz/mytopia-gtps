@@ -42,8 +42,8 @@ client before the items parser is upgraded (see P2).
 ## P1 - Gameplay content
 - [~] `@todo` sweep: duct-tape 10min expiry (main-loop watchdog), object stacking cap 200 +
       overflow stacks, access list written to map data, tile refresh on block destruction,
-      rare-item purchase text. Remaining (needs RE/wikidata): GBC reward list,
-      display-block dialog, provider countdown, map header bytes 0x19/0x40
+      rare-item purchase text. Remaining (needs RE/wikidata): display-block dialog,
+      provider countdown, map header bytes 0x19/0x40
 - [x] Worlds: save/load + autosave; world lock flows complete (place claims ownership,
       wrench LockEdit dialog, public/private, access list 20 slots, entry gate) - verified
       end-to-end via tests/sim_lock_flow.js (owner claim / blocked entry / access grant /
@@ -113,6 +113,16 @@ client before the items parser is upgraded (see P2).
       smashing releases the area and returns the lock. Verified end-to-end by
       tests/sim_lock_range.js across a server restart (13+18 checks). docs/PROTOCOL.md
       updated with the SEND_LOCK field mapping + tile parent/flag rows
+- [x] Golden Booty Chest loot tables: full drop list for Heartstone/GBC/Super GBC taken
+      from growtopiawiki.com/w/Golden_Booty_Chest (69 pool rows + 13 Super-only items with
+      names matched 1:1 against our v5.57 items.dat). Heartstone + GBC share the pool;
+      Super GBC (9350) adds its exclusives and rolls the Golden Heart Crystal at 4x
+      (verified 4x ratio by weight). Weighted roll with our own rarity tiering
+      (`include/automate/loot.cpp`; retail weights are server-side). Stack counts follow
+      the wiki (x10 blocks/lollipops, x2 loveseat/curtain). 1 free Super GBC per 100
+      smashed GBCs (wiki, now GBC-only instead of counting all chests). Sim:
+      tests/sim_gbc.js - 30 GBC + 5 Super + 5 Heartstone smashed, 40/40 drops, every id
+      in the allowed set, x10/x2 counts exact (5/5 checks)
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate

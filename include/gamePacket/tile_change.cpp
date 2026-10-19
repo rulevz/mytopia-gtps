@@ -12,6 +12,7 @@
 #include "action/join_request.hpp"
 #include "item_activate_object.hpp"
 #include "automate/lock.hpp"
+#include "automate/loot.hpp"
 
 #include "tile_change.hpp"
 
@@ -289,24 +290,14 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             
             if (item.id == 392/*Heartstone*/ || item.id == 3402/*GBC*/ || item.id == 9350/*Super GBC*/)
             {
-                short reward =
-                    (!RandomRange(0, 99)) ? 1458 : // @note GHC
-                    (!RandomRange(0, 20)) ? 362 : // @note Angel Wings
-                    (!RandomRange(0, 8))  ? 366 : // @note Heartbow
-                    (!RandomRange(0, 8))  ? 1470 : // @note Ruby Necklace
-                    (!RandomRange(0, 20)) ? 2384 : // @note Love Bug
-                    (!RandomRange(0, 4))  ? 2396 : // @note Valensign
-                    (!RandomRange(0, 10)) ? 3388 : // @note Heartbreaker Hammer
-                    (!RandomRange(0, 10)) ? 2390 : // @note Teeny Angel Wings
-                    (!RandomRange(0, 10)) ? 3396 : // @note Lovebird Pendant
-                    (!RandomRange(0, 2))  ? 3404 : // @note Sour Lollipop
-                    (!RandomRange(0, 4))  ? 3406 : // @note Sweet Lollipop
-                    (!RandomRange(0, 2))  ? 3408 : // @note Pink Marble Arch
-                    388; // @note Perfume
-                    // @todo add all the remaining drops - https://growtopia.fandom.com/wiki/Golden_Booty_Chest
+                /* @note full weighted drop table (include/automate/loot.cpp):
+                   growtopiawiki.com/w/Golden_Booty_Chest. Heartstone and GBC share the
+                   pool; the Super GBC adds its 13 exclusives and rolls the Golden Heart
+                   Crystal at 4x. */
+                const ::slot reward = loot::roll_gbc(item.id);
+                add_drop(event, reward, gamePacket.punch.by_32(), *world);
 
-                add_drop(event, ::slot(reward, (reward == 3408 || reward == 3404) ? 10 : 1), gamePacket.punch.by_32(), *world);
-                if (reward == 1458)
+                if (reward.id == 1458)
                 {
                     std::string message = std::format("msg|`4The Power of Love! `2{} found a `#Golden Heart Crystal`2 in a `#{}`2!", pPeer->growid, item.raw_name);
                     peers(pPeer->recent_worlds.back(), PEER_ALL, [message](ENetPeer &p)
@@ -314,7 +305,9 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         send_action(p, "log", message.c_str());
                     });
                 }
-                if (++pPeer->gbc_pity % 100 == 0) modify_item_inventory(event, ::slot{9350, 1});
+                // @note 1 free Super GBC per 100 smashed GBCs (wiki trivia); GBCs only
+                if (item.id == 3402 && ++pPeer->gbc_pity % 100 == 0)
+                    modify_item_inventory(event, ::slot{9350, 1});
             }
             else if (item.type == type::LOCK)
             {
