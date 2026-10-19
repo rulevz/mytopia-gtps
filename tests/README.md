@@ -65,6 +65,20 @@ Usage (server must be running; edit HOST/PORT at the top of each file if needed)
   Regression for the punch-guard scope fix: B walks with punch=-1,-1 (what retail
   clients send while walking) + valid punch; A must receive ALL movement broadcasts
   (the guard used to silently drop ~63% of real movements - players appeared frozen).
+- `node sim_provider_display.js` (env `STEP=1|2`)
+  Provider + Display Block end-to-end: places an ATM (extra 0x09, growTime 0), proves
+  the harvest gate refuses early punches, wrenches the Display Block picker (extra
+  0x17 + item id); STEP=2 runs after the DB tick is moved to the past + a restart and
+  expects the harvest drop and a re-armed growTime.
+- `node sim_world_stream.js`
+  Dumps the LIVE `PACKET_SEND_MAP_DATA` payload (world join, 5.57 client path) to
+  `OUT` (default /tmp/world_stream_live.bin) for `world_stream_check.py`, then checks
+  the provider refusal and the display-block dialog (3 checks).
+- `python3 world_stream_check.py --world <file> [--items items.dat] | --selftest`
+  Parses a world-data stream exactly like the 5.57 client and asserts EXACT EOF, so a
+  wrong tile-extra width (which silently shifts every following tile) fails loudly.
+  Uses items.dat to know which tile types carry an extra; `--selftest` runs a
+  synthetic stream without a server.
 
 Notes:
 - `sim_protocol_login.js` registers/loads the account inside the ltoken payload

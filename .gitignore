@@ -23,3 +23,10 @@ resources/ctx.bak/
 # gtproxy (packet capture tool) local artifacts
 tools/gtproxy/gtproxy
 tools/gtproxy/captures/
+
+# python bytecode from the test/RE helpers
+tests/__pycache__/
+tools/**/__pycache__/
+
+# compiled RE helper (source: tools/gt-re/serialize_dump.cpp)
+tools/gt-re/serialize_dump
