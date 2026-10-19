@@ -41,6 +41,17 @@ void block::reset()
     return blob;
 }
 
+::blob tile_lock::to_blob() const
+{
+    blob blob;
+    blob.u8(this->flags);
+    blob.i32(this->owner);
+    blob.i32(static_cast<int>(this->access.size()));
+    for (const int uid : this->access) blob.i32(uid);
+
+    return blob;
+}
+
 ::blob object::to_blob() const
 {
     blob blob;
@@ -104,6 +115,10 @@ void block::reset()
     for (u_short i = 0; const ::block &block : this->blocks)
     {
         blob.push_back(block.to_blob());
+        /* @note tiles governed by a range lock echo their parent index a second time
+           right after the flags (client reads it when HAS_PARENT is set). */
+        if (const u_short parent = block_parent(block); parent > 0)
+            blob.i16(static_cast<short>(parent));
 
         if (block.fg != 0 || block.fg!=2||block.fg!=4||block.fg!=8||block.fg!=14) // @note so we can save time
         if (char type = get_type(id_to_item(block.fg)); type > '\x00')
@@ -131,14 +146,24 @@ void block::reset()
             }
             else if (type == '\x03'/*lock*/)
             {
-                if (!is_tile_lock(block.fg)) this->is_public = (block.state[2] & S_PUBLIC); // @note check if world lock has S_PUBLIC flag, i will change this later
-                int access = std::ranges::count_if(this->access, std::identity{});
-                
-                blob.u8(this->lock_state);
-                blob.i32(this->owner);
-                blob.i32(access);
-                for (const int uid : this->access)
-                    if (uid) blob.i32(uid); // @note the access list itself (user ids)
+                if (is_tile_lock(block.fg))
+                {
+                    // @note range lock: the lock's own flags/owner/access (retail extra shape)
+                    auto lock = std::ranges::find(this->locks, block_pos, &::tile_lock::pos);
+                    if (lock != this->locks.end()) blob.push_back(lock->to_blob());
+                    else { blob.u8(0x00); blob.i32(0x00); blob.i32(0x00); } // @note keep the stream parseable
+                }
+                else
+                {
+                    this->is_public = (block.state[2] & S_PUBLIC); // @note check if world lock has S_PUBLIC flag, i will change this later
+                    int access = std::ranges::count_if(this->access, std::identity{});
+                    
+                    blob.u8(this->lock_state);
+                    blob.i32(this->owner);
+                    blob.i32(access);
+                    for (const int uid : this->access)
+                        if (uid) blob.i32(uid); // @note the access list itself (user ids)
+                }
             }
             else if (type == '\x04'/*seed*/)
             {
@@ -253,6 +278,7 @@ void world::mysql_select_all()
     }
     {
         this->trees.clear();
+        this->locks.clear();
         ::blob blob = this->mysql_select<::blob>("blocks");
         this->blocks.resize(cord(0, 60));
 
@@ -284,6 +310,21 @@ void world::mysql_select_all()
 
                     blob.read_string(sign.label, pos);
                     blob.read_u32(sign.idk, pos);
+                }
+                else if (type == '\x03'/*lock*/)
+                {
+                    if (is_tile_lock(block.fg))
+                    {
+                        ::tile_lock &lock = this->locks.emplace_back(block_pos, 0);
+                        blob.read_u8(lock.flags, pos);
+                        {
+                            u_int owner{}; blob.read_u32(owner, pos);
+                            lock.owner = static_cast<int>(owner);
+                            u_int count{}; blob.read_u32(count, pos);
+                            lock.access.resize(count);
+                            for (int &uid : lock.access) { u_int v{}; blob.read_u32(v, pos); uid = static_cast<int>(v); }
+                        }
+                    }
                 }
                 else if (type == '\x04'/*seed*/)
                 {
@@ -365,6 +406,16 @@ void world::save()
                     if (sign != this->signs.end())
                     {
                         blob.push_back(sign->to_blob());
+                    }
+                }
+                else if (type == '\x03'/*lock*/)
+                {
+                    // @note range locks persist their own flags/owner/access (world lock state has its own columns)
+                    if (is_tile_lock(block.fg))
+                    {
+                        auto lock = std::ranges::find(this->locks, block_pos, &::tile_lock::pos);
+                        if (lock != this->locks.end()) blob.push_back(lock->to_blob());
+                        else { blob.u8(0x00); blob.i32(0x00); blob.i32(0x00); }
                     }
                 }
                 else if (type == '\x04'/*seed*/)
@@ -462,6 +513,26 @@ void state_visuals(ENetPeer &peer, ::gamePacket &&gamePacket)
     peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer &p) 
     {
         send_data(p, compress_state(gamePacket));
+    });
+}
+
+void send_lock_packet(const std::string &world_name, ::pos lock_pos, int owner_uid, int lock_item_id, const std::vector<::pos> &tiles)
+{
+    ::gamePacket gamePacket{
+        .type = 0x0f, // @note PACKET_SEND_LOCK
+        .netid = owner_uid, // @note lock owner's user id (same slot the world lock visual uses)
+        .uid = static_cast<int>(tiles.size()), // @note number of governed tiles
+        .state = state::S_EXTENDED,
+        .id = lock_item_id,
+        .punch = lock_pos,
+        .size = static_cast<u_int>(tiles.size() * sizeof(short))
+    };
+    ::blob blob = compress_state(gamePacket);
+    for (const ::pos &tile : tiles) blob.i16(static_cast<short>(cord(tile.x_int(), tile.y_int())));
+
+    peers(world_name, PEER_SAME_WORLD, [&blob](ENetPeer &p)
+    {
+        send_data(p, blob);
     });
 }
 
@@ -580,6 +651,10 @@ void send_tile_update(ENetEvent &event, ::gamePacket gamePacket, ::block &block,
     ::blob blob = compress_state(gamePacket);
 
     blob.push_back(block.to_blob());
+    /* @note tiles governed by a range lock echo their parent index after the flags
+       (the client reads it when HAS_PARENT is set - same as the world-data stream). */
+    if (const u_short parent = block_parent(block); parent > 0)
+        blob.i16(static_cast<short>(parent));
 
     const ::item &item = id_to_item(block.fg);
     blob.u8(get_type(id_to_item(block.fg)));
@@ -605,12 +680,25 @@ void send_tile_update(ENetEvent &event, ::gamePacket gamePacket, ::block &block,
         }
         case type::LOCK:
         {
-            if (!is_tile_lock(block.fg)) world.is_public = (block.state[2] & S_PUBLIC); // @note check if world lock has S_PUBLIC flag, i will change this later
-            int access = std::ranges::count_if(world.access, std::identity{});
+            if (is_tile_lock(block.fg))
+            {
+                // @note range lock: its own flags/owner/access (matches the world-data extra)
+                auto range = std::ranges::find(world.locks, gamePacket.punch, &::tile_lock::pos);
+                if (range != world.locks.end()) blob.push_back(range->to_blob());
+                else { blob.u8(0x00); blob.i32(0x00); blob.i32(0x00); } // @note keep the stream parseable
+            }
+            else
+            {
+                world.is_public = (block.state[2] & S_PUBLIC); // @note check if world lock has S_PUBLIC flag, i will change this later
+                int access = std::ranges::count_if(world.access, std::identity{});
 
-            blob.u8(world.lock_state);
-            blob.i32(world.owner);
-            blob.i32(access);
+                blob.u8(world.lock_state);
+                blob.i32(world.owner);
+                blob.i32(access);
+                for (const int uid : world.access)
+                    if (uid) blob.i32(uid); // @note the access list itself (user ids)
+            }
+            break;
         }
         case type::SEED:
         {

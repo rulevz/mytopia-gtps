@@ -38,6 +38,32 @@ enum lock_state : u_char
 
 char get_type(const ::item &item);
 
+/* @note range-lock (small/big/huge/builder) flags byte — retail TileExtra_Lock flags.
+   Sent verbatim in the lock tile extra so the client's wrench UI shows the right options. */
+enum lock_flags : u_char
+{
+    LOCK_IGNORE_EMPTY   = 0x01, // @note "Ignore empty air" (tile locks only)
+    LOCK_DISABLE_MUSIC  = 0x10, // @note world lock parity (see lock_state::)
+    LOCK_DISABLE_RENDER = 0x20,
+    LOCK_BUILD_ONLY     = 0x40, // @note Builder's Lock: "Only Allow Building!"
+    LOCK_LIMIT_ADMINS   = 0x80  // @note Builder's Lock: "Admins Are Limited"
+};
+
+/* @note a placed range lock (small/big/huge/builder). Tiles it governs store this
+   lock's tile index as their "parent" (2 bytes in block::state[0..1], state[2] bit
+   0x02 = the client's HAS_PARENT flag). */
+struct tile_lock
+{
+    tile_lock(::pos _pos, int _owner, u_char _flags = 0) :
+        pos(_pos), owner(_owner), flags(_flags) {}
+
+    ::pos pos{};
+    int owner{};        // @note peer::user_id
+    u_char flags{};     // @note lock_flags:: ("public" lives on the lock block's S_PUBLIC state, like world locks)
+    std::vector<int> access{};
+
+    ::blob to_blob() const; // @note u8 flags, i32 owner, i32 count, uids... (client + save shape)
+};
 
 struct block 
 {
@@ -53,6 +79,25 @@ struct block
 
     ::blob to_blob() const;
 };
+
+/* @note tile "parent" = flat index (y*100+x) of the lock tile governing this tile.
+   Stored little-endian in state[0..1]; state[2] bit1 mirrors it as HAS_PARENT. */
+inline u_short block_parent(const ::block &b)
+{
+    return static_cast<u_short>(b.state[0] | (b.state[1] << 8));
+}
+inline void block_set_parent(::block &b, u_short parent)
+{
+    b.state[0] = static_cast<u_char>(parent & 0xff);
+    b.state[1] = static_cast<u_char>(parent >> 8);
+    b.state[2] |= 0x02; // @note HAS_PARENT
+}
+inline void block_clear_parent(::block &b)
+{
+    b.state[0] = 0x00;
+    b.state[1] = 0x00;
+    b.state[2] &= ~0x02;
+}
 #define cord(x,y) (y * 100 + x)
 
 struct door 
@@ -162,6 +207,7 @@ public:
     u_int last_object_uid{0};
     std::vector<::object> objects{};
     std::vector<::door> doors{};
+    std::vector<::tile_lock> locks{}; // @note placed range locks (small/big/huge/builder's)
     std::vector<::display> displays{};
     std::vector<::random_block> random_blocks{};
     std::vector<::sign> signs{};
@@ -182,6 +228,10 @@ extern void send_action(ENetPeer &p, const std::string &action, const std::strin
 extern void send_data(ENetPeer &peer, const ::blob &blob);
 
 extern void state_visuals(ENetPeer &peer, gamePacket &&gamePacket);
+
+/* @note PACKET_SEND_LOCK to everyone in the world: announces/marks the tiles a range
+   lock currently governs (u16 tile indices as payload; empty for a world lock). */
+extern void send_lock_packet(const std::string &world_name, ::pos lock_pos, int owner_uid, int lock_item_id, const std::vector<::pos> &tiles);
 
 extern void tile_apply_damage(ENetEvent &event, gamePacket gamePacket, block &block, u_int value);
 

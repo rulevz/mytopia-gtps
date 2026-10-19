@@ -42,7 +42,7 @@ client before the items parser is upgraded (see P2).
 ## P1 - Gameplay content
 - [~] `@todo` sweep: duct-tape 10min expiry (main-loop watchdog), object stacking cap 200 +
       overflow stacks, access list written to map data, tile refresh on block destruction,
-      rare-item purchase text. Remaining (needs RE/wikidata): range-locks, GBC reward list,
+      rare-item purchase text. Remaining (needs RE/wikidata): GBC reward list,
       display-block dialog, provider countdown, map header bytes 0x19/0x40
 - [x] Worlds: save/load + autosave; world lock flows complete (place claims ownership,
       wrench LockEdit dialog, public/private, access list 20 slots, entry gate) - verified
@@ -102,6 +102,17 @@ client before the items parser is upgraded (see P2).
       cluttered inside a small dialog, so they stay out. Leftovers (non-blocking):
       `reset_locks|1` (retail servers never send it either) and `trade_check_price` (no
       reference reply exists — logged only)
+- [x] Range locks (small/big/huge/builder's): retail-ported claim algorithm + full flow
+      (rebuilt from GTopia's `WorldTileManager::ApplyLockTiles`) — nearest-eligible-tile
+      scan with connected-area constraint and growing radius, max tiles 10/48/200/200,
+      "ignore empty air"; governed tiles carry the lock's flat index as their parent
+      (`state[0..1]`, `state[2]` bit 0x02 = HAS_PARENT, echoed a second time on the client
+      wire); lock extra carries flags/owner/access; wrench dialog `tile_lock_edit`
+      (access list, public, ignore-empty, Builder's Lock build-only/admins-limited,
+      "Re-apply lock" recalc); SEND_LOCK (0x0f) marks the governed set for the world;
+      smashing releases the area and returns the lock. Verified end-to-end by
+      tests/sim_lock_range.js across a server restart (13+18 checks). docs/PROTOCOL.md
+      updated with the SEND_LOCK field mapping + tile parent/flag rows
 
 ## P2 - Reverse engineering track (keep us up-to-date)
 - [x] RE items.dat `0x1b` (clients 5.58+): trailing len-prefixed string + `==`->`>=` 0x1a gate

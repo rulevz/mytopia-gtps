@@ -115,6 +115,23 @@ Serialize: `compress_state()` - writes the 15 fields; callers append payloads
 | 0x14 | PACKET_SET_CHARACTER_STATE    | `SetClothing.cpp` (`type = 0x14`, OR'd with `(0x808000 + effect) << 8`) |
 | 0x16 | PACKET_PING_REQUEST           | `enter_game.cpp`                                 |
 
+### Payload formats (0x04 world data, 0x0f send_lock)
+
+- **Tile bytes** (world-data blob and `send_tile_update`): `fg u16`, `bg u16`, `parent u16`,
+  `flags u16` (= `state[2] | state[3] << 8`); when flags bit1 (HAS_PARENT) is set the parent
+  u16 is emitted a **second time** right after the flags (the client reads that copy), then
+  the extra-data type byte + per-type payload. The `blocks` DB column keeps the plain
+  8-byte tile (`to_blob()`, no duplicated parent) - that is our own format. `state[2..3]`
+  map 1:1 to the client's tile-flag table: 0x01 HAS_EXTRA, 0x02 HAS_PARENT, 0x04 WAS_SPLICED,
+  0x08 WILL_SPAWN_SEEDS, 0x10 IS_SEEDLING, 0x20 FLIPPED, 0x40 IS_ON, 0x80 OPEN_TO_PUBLIC,
+  0x100 BG_IS_ON, 0x200 FG_ALT_MODE, 0x400 WET, 0x800 GLUED, 0x1000 FIRE,
+  0x2000/0x4000/0x8000 PAINT R/G/B.
+- **0x0f SEND_LOCK field mapping** (world lock + range locks, `send_lock_packet()`):
+  `netid` = lock owner user id, `uid` = governed tile count, `id` = lock item id,
+  `punch` = lock position, `state = S_EXTENDED`, `size` = payload byte length; payload =
+  one `u16` flat tile index (`y*100+x`) per governed tile (a world lock sends none).
+  Matches GTopia's GameUpdatePacket slot order `[userID][count][lockID][posx][posy][u16*]`.
+
 ## 6. Variant RPC - the Proton layer (`include/proton/`)
 
 Server -> client calls are tank `type 0x01`, `state = S_EXTENDED`,
@@ -174,7 +191,7 @@ stage 4 (client hangs at "Logging on..."); bound-check pipe loops; `user|` parse
 - **dialog_return routing**: `action|dialog_return|dialog_name|<id>|...` ->
   `dialog_return_pool` (`include/action/dialog_return/__dialog_return.cpp`). Handlers:
   popup, drop_item, trash_item, find_item, gateway_edit / door_edit / sign_edit,
-  billboard_edit, lock_edit, create_blast, socialportal, megaphone. Dialogs are built
+  billboard_edit, lock_edit, tile_lock_edit, create_blast, socialportal, megaphone. Dialogs are built
   with `include/tools/create_dialog.hpp`.
 - **In-game commands**: chat starting with `/` -> `cmd_pool`
   (`include/commands/__command.cpp`): help/?, time, find, warp, punch, skin, sb, who,
@@ -206,7 +223,8 @@ stage 4 (client hangs at "Logging on..."); bound-check pipe loops; `user|` parse
 - Live logs: `tmux capture-pane -t gtps:server -p` (pty = line-buffered).
 - Simulators in `tests/` (see `tests/README.md`): `https_login_test.py`,
   `sim_protocol_login.js`, `sim_modern_login.js`, `multi_client_smoke.js`,
-  `sim_lock_flow.js`, `sim_punch.js`, `sim_command.js`, `itemsdat_check.py`.
+  `sim_lock_flow.js`, `sim_lock_range.js`, `sim_trade_flow.js`, `sim_command.js`,
+  `sim_world_door_exit.js`, `sim_movement_sync.js`, `sim_punch.js`, `itemsdat_check.py`.
 - items.dat internals (version gates, XOR name token `PBG892FXX982ABC*`, per-version
   table): `docs/ITEMSDAT-FORMATS.md`.
 

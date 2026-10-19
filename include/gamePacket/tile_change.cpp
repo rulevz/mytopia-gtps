@@ -11,8 +11,18 @@
 #include "action/quit_to_exit.hpp"
 #include "action/join_request.hpp"
 #include "item_activate_object.hpp"
+#include "automate/lock.hpp"
 
 #include "tile_change.hpp"
+
+/* @return growid of any account id (works offline); "someone" when unknown. */
+static std::string uid_growid(int user_id)
+{
+    ::peer offline{}; // @note offline "fake" peer, only used to read the growid
+    offline.user_id = user_id;
+    const std::string growid = offline.mysql_select<std::string>("growid", "", true);
+    return growid.empty() ? "someone" : growid;
+}
 
 void tile_change(ENetEvent& event, ::gamePacket gamePacket) 
 {
@@ -35,11 +45,45 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             }
 
         if (!(item.cat & CAT_PUBLIC)) // @note if block is public skip validating if peer is owner or access
+        {
+            const bool is_punch = (gamePacket.id == 18);
+
+            /* @note world lock rule (existing semantics, now with feedback) */
             if ((world->owner && !world->is_public && !pPeer->role) &&
-                (pPeer->user_id != world->owner && std::ranges::find(world->access, pPeer->user_id) == world->access.end())) return;
+                (pPeer->user_id != world->owner && std::ranges::find(world->access, pPeer->user_id) == world->access.end()))
+            {
+                if (is_punch)
+                    throw std::runtime_error(std::format("`w{}``'s `$World Lock``. (`4No access``)", uid_growid(world->owner)));
+                throw std::runtime_error(std::format("That area is owned by `w{}``", uid_growid(world->owner)));
+            }
+
+            /* @note range-lock rule: target tile sits inside a small/big/huge/builder's lock */
+            if (::tile_lock *range = lock::governing(*world, gamePacket.punch))
+            {
+                ::block &lock_block = world->blocks[cord(range->pos.x_int(), range->pos.y_int())];
+                const ::item &lock_item = id_to_item(lock_block.fg);
+                const bool is_public = (lock_block.state[2] & S_PUBLIC) != 0;
+                const bool builders = (lock_item.id == 4994);
+
+                bool allowed = lock::has_access(*range, pPeer->user_id) || is_public;
+                if (pPeer->role != PLAYER && !(range->flags & LOCK_LIMIT_ADMINS)) allowed = true; // @note staff bypass ("Admins Are Limited" disables it)
+
+                if (!allowed)
+                {
+                    const bool build_only = (range->flags & LOCK_BUILD_ONLY) != 0;
+                    if (builders && build_only && is_punch) throw std::runtime_error("This lock allows building only!");
+                    if (builders && !build_only && !is_punch) throw std::runtime_error("This lock allows breaking only!");
+                    if (is_punch)
+                        throw std::runtime_error(std::format("`w{}``'s `${}``. (`4No access``)", uid_growid(range->owner), lock_item.raw_name));
+                    throw std::runtime_error(std::format("That area is owned by `w{}``", uid_growid(range->owner)));
+                }
+            }
+        }
 
         bool tile_update{};
         bool lock_visuals{}; // @todo this looks sloppy
+        bool placed_range{}; // @note true when this call placed a small/big/huge/builder's lock
+        std::vector<::pos> claimed_tiles{}; // @note tiles the just-placed range lock governs
         
         if (gamePacket.id == 18) // @note punching a block
         {
@@ -120,7 +164,14 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 case type::MAIN_DOOR: throw std::runtime_error("(stand over and punch to use)");
                 case type::LOCK:
                 {
-                    if (is_tile_lock(item.id)) break; // @todo seperate area for 'range_lock'
+                    if (is_tile_lock(item.id))
+                    {
+                        // @note only the lock's owner may smash a range lock; everyone else gets the retail bubble
+                        if (::tile_lock *range = lock::find(*world, gamePacket.punch); range && range->owner != pPeer->user_id)
+                            throw std::runtime_error(std::format("`w{}``'s `${}``. {}", uid_growid(range->owner), item.raw_name,
+                                lock::has_access(*range, pPeer->user_id) ? "(`2Access granted``)" : "(`4No access``)"));
+                        break;
+                    }
 
                     if (world->owner != pPeer->user_id)
                     {
@@ -233,7 +284,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             else return;
             
             tile_update = true; // @note refresh the tile cache after destruction
-            block.state[2] = 0x00; // @note reset tile direction
+            block.state[2] &= 0x02; // @note reset tile direction; keep the HAS_PARENT bit so the tile stays inside its lock's area
             block.state[3] &= ~S_VANISH; // @note remove paint
             
             if (item.id == 392/*Heartstone*/ || item.id == 3402/*GBC*/ || item.id == 9350/*Super GBC*/)
@@ -265,12 +316,32 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 }
                 if (++pPeer->gbc_pity % 100 == 0) modify_item_inventory(event, ::slot{9350, 1});
             }
-            else if (item.type == type::LOCK && !is_tile_lock(item.id))
+            else if (item.type == type::LOCK)
             {
-                pPeer->display_growid = std::format("`w{}``", pPeer->growid);
-                on::NameChanged(event);
-                
-                world->owner = 0; // @todo have a seperate thing for 'range_lock'
+                if (is_tile_lock(item.id))
+                {
+                    // @note range lock smashed: release its area (tile updates) and drop the lock
+                    // itself back into the owner's backpack through the CAT_RETURN path below.
+                    std::vector<::pos> released;
+                    lock::clear(*world, gamePacket.punch, released);
+                    std::erase_if(world->locks, [&gamePacket](const ::tile_lock &range) { return range.pos == gamePacket.punch; });
+                    printf("[lock] %s smashed %s at (%d,%d) - released %zu tile(s)\n",
+                        pPeer->growid.c_str(), item.raw_name.c_str(),
+                        gamePacket.punch.x_int(), gamePacket.punch.y_int(), released.size());
+
+                    for (const ::pos &tile : released)
+                    {
+                        ::block &released_block = world->blocks[cord(tile.x_int(), tile.y_int())];
+                        send_tile_update(event, ::gamePacket{.id = released_block.fg, .punch = tile}, released_block, *world);
+                    }
+                }
+                else
+                {
+                    pPeer->display_growid = std::format("`w{}``", pPeer->growid);
+                    on::NameChanged(event);
+                    
+                    world->owner = 0;
+                }
             }
 
             if (item.cat == CAT_RETURN)
@@ -514,7 +585,82 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             {
                 case type::LOCK:
                 {
-                    if (is_tile_lock(item.id)) break; // @todo seperate area for 'range_lock'
+                    if (is_tile_lock(item.id))
+                    {
+                        ::tile_lock *range = lock::find(*world, gamePacket.punch);
+                        if (range == nullptr) break;
+
+                        if (range->owner == pPeer->user_id)
+                        {
+                            // @note owner: full lock dialog (access list / public / ignore-air / builder options)
+                            std::string access_list{ "`4(empty)``" };
+                            if (!range->access.empty())
+                            {
+                                access_list.clear();
+                                for (const int uid : range->access)
+                                {
+                                    if (!access_list.empty()) access_list += ", ";
+                                    access_list += uid_growid(uid);
+                                }
+                            }
+                            const bool is_public = (block.state[2] & S_PUBLIC) != 0;
+
+                            std::string dialog = std::format(
+                                "set_default_color|`o\n"
+                                "add_label_with_icon|big|`wEdit {}``|left|{}|\n"
+                                "add_popup_name|LockEdit|\n"
+                                "add_label|small|`wAccess list:`` {}|left\n"
+                                "embed_data|tilex|{}\n"
+                                "embed_data|tiley|{}\n"
+                                "add_spacer|small|\n"
+                                "add_player_picker|playerNetID|`wAdd online player``|\n"
+                                "add_text_input|access|Add/remove by name||18|\n"
+                                "add_smalltext|Type a name to add them; type a listed name again to remove it.|left|\n"
+                                "add_checkbox|checkbox_public|{}|{}\n",
+                                item.raw_name, item.id, access_list, gamePacket.punch.x_int(), gamePacket.punch.y_int(),
+                                (item.id == 4994) ? "Allow anyone to Build or Break" : "Allow anyone to build",
+                                to_char(is_public));
+                            if (item.id == 4994)
+                            {
+                                dialog += std::format(
+                                    "add_smalltext|This lock allows Building or Breaking.  (ONLY if \"Allow anyone to Build or Break\" is checked above)!|left|\n"
+                                    "add_spacer|small|\n"
+                                    "add_smalltext|Leaving this box unchecked only allows Breaking.|left|\n"
+                                    "add_checkbox|checkbox_buildonly|Only Allow Building!|{}\n"
+                                    "add_smalltext|People with lock access can both build and break unless you check below.  The lock owner can always build and break.|left|\n"
+                                    "add_checkbox|checkbox_admins|Admins Are Limited|{}\n",
+                                    to_char((range->flags & LOCK_BUILD_ONLY) != 0),
+                                    to_char((range->flags & LOCK_LIMIT_ADMINS) != 0));
+                            }
+                            dialog += std::format(
+                                "add_checkbox|checkbox_ignore|Ignore empty air|{}\n"
+                                "add_button|recalc_lock|`wRe-apply lock``|noflags|0|0|\n"
+                                "end_dialog|tile_lock_edit|Cancel|OK|\n",
+                                to_char((range->flags & LOCK_IGNORE_EMPTY) != 0));
+
+                            send_varlist(event.peer, { "OnDialogRequest", dialog });
+                        }
+                        else if (pPeer->role != PLAYER && lock::has_access(*range, pPeer->user_id))
+                        {
+                            // @note staff with access: offer to drop it
+                            send_varlist(event.peer, {
+                                "OnDialogRequest",
+                                std::format(
+                                    "set_default_color|`o\n"
+                                    "add_label_with_icon|big|`wEdit {}``|left|{}|\n"
+                                    "add_popup_name|LockEdit|\n"
+                                    "embed_data|tilex|{}\n"
+                                    "embed_data|tiley|{}\n"
+                                    "add_label|This lock is owned by someone, but I have access on it.|left\n"
+                                    "add_button|remove_my_access|`wRemove My Access``|noflags|0|0|\n"
+                                    "end_dialog|tile_lock_edit|Cancel|OK|\n",
+                                    item.raw_name, item.id, gamePacket.punch.x_int(), gamePacket.punch.y_int())
+                            });
+                        }
+                        else if (pPeer->role == PLAYER)
+                            throw std::runtime_error("I'm `4unable`` to pick the lock.");
+                        break;
+                    }
 
                     if (pPeer->user_id == world->owner)
                     {
@@ -658,7 +804,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     case type::SEED:
                     {
                         auto tree = std::ranges::find(world->trees, gamePacket.punch, &::tree::pos);
-                        if (block.state[2] == S_SPLICED) throw std::runtime_error("It would be too dangerous to try to mix three seeds.");
+                        if ((block.state[2] & S_SPLICED) == S_SPLICED) throw std::runtime_error("It would be too dangerous to try to mix three seeds.");
                         for (::item &item : items)
                         {
                             if ((item.splice[0] == gamePacket.id && item.splice[1] == block.fg) ||
@@ -675,14 +821,14 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                                     0u, 1u
                                 });
                                 tree->tick = ticks();
-                                block.state[2] = S_SPLICED; // @todo handle for multiple flags
+                                block.state[2] = S_SPLICED | (block.state[2] & 0x02); // @todo handle for multiple flags (@note 0x02 kept: HAS_PARENT)
 
                                 block.fg = item.id;
                                 update_tile = true;
                                 break;
                             }
                         }
-                        if (block.state[2] != S_SPLICED) throw std::runtime_error(std::format("Hmm, it looks like `w{}`` and `w{}`` can't be spliced.", id_to_item(block.fg).raw_name, id_to_item(gamePacket.id).raw_name));
+                        if ((block.state[2] & S_SPLICED) != S_SPLICED) throw std::runtime_error(std::format("Hmm, it looks like `w{}`` and `w{}`` can't be spliced.", id_to_item(block.fg).raw_name, id_to_item(gamePacket.id).raw_name));
                         break;
                     }
                 }
@@ -715,10 +861,28 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 }
                 case type::LOCK:
                 {
-                    if (is_tile_lock(item.id)) break; // @note seperate area for 'range_lock'
+                    if (is_tile_lock(item.id))
+                    {
+                        // @note can't cage another player's lock area (retail message)
+                        if (::tile_lock *nearby = lock::governing(*world, gamePacket.punch); nearby && nearby->owner != pPeer->user_id)
+                            throw std::runtime_error("Only the world owner can place more locks here!");
+
+                        ::tile_lock &range = world->locks.emplace_back(gamePacket.punch, pPeer->user_id);
+                        lock::apply(*world, gamePacket.punch, lock::max_tiles(item.id), (range.flags & LOCK_IGNORE_EMPTY) != 0, claimed_tiles);
+                        placed_range = true;
+                        tile_update = true; // @note the lock tile itself carries the lock extra
+                        printf("[lock] %s placed %s at (%d,%d) - governs %zu tile(s)\n",
+                            pPeer->growid.c_str(), item.raw_name.c_str(),
+                            gamePacket.punch.x_int(), gamePacket.punch.y_int(), claimed_tiles.size());
+                        break;
+                    }
 
                     if (!world->owner)
                     {
+                        // @note retail: no world lock while someone else's locks exist
+                        if (std::ranges::any_of(world->locks, [pPeer](const ::tile_lock &range) { return range.owner != pPeer->user_id; }))
+                            throw std::runtime_error("Your `$World Lock`` can't be placed in this world unless everyone else's locks are removed.");
+
                         world->owner = pPeer->user_id;
                         lock_visuals = true;
 
@@ -777,6 +941,14 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 .id = gamePacket.id,
                 .punch = gamePacket.punch
             });
+        }
+        if (placed_range)
+        {
+            /* @note SEND_LOCK marks every tile the new range lock governs for the whole
+               world; the placer gets the retail "Area locked." bubble + lock sound. */
+            send_lock_packet(world->name, gamePacket.punch, pPeer->user_id, item.id, claimed_tiles);
+            send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, "Area locked.", 0u, 1u });
+            send_action(*event.peer, "play_sfx", "file|audio/use_lock2.wav\ndelayMS|-1\n");
         }
     }
     catch (const std::exception& exc)
