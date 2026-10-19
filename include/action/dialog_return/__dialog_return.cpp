@@ -13,6 +13,7 @@
 #include "trade_item.hpp"
 #include "trade_confirm.hpp"
 #include "tile_lock_edit.hpp"
+#include "display_block.hpp"
 
 #include "__dialog_return.hpp"
 
@@ -37,4 +38,5 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"megaphone", std::bind(&megaphone, std::placeholders::_1, std::placeholders::_2)},
     {"trade_item", std::bind(&trade_item, std::placeholders::_1, std::placeholders::_2)},
     {"trade_confirm", std::bind(&trade_confirm, std::placeholders::_1, std::placeholders::_2)},
+    {"display_block", std::bind(&display_block, std::placeholders::_1, std::placeholders::_2)},
 };

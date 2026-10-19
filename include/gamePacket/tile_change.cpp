@@ -184,10 +184,24 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 }
                 case type::PROVIDER:
                 {
-                    //if (ticks() - block.tick >= item.tick)
-                    //{
-                        switch (item.id)
-                        {
+                    /* @note harvest gate. `item.tick` (items.dat) is the harvest period in
+                       SECONDS and matches the wiki 1:1 (ATM 79200 = 22h, Science Station
+                       43200 = 12h, Sheep 259200 = 3d, Unicorn 604800 = 7d).
+                       @source docs/CLIENT-RE-TILEEXTRAS.md §4 + growtopiawiki.com/w/Provider_(block_category) */
+                    auto it = std::ranges::find(world->providers, gamePacket.punch, &::provider::pos);
+                    const u_int placed = (it != world->providers.end()) ? it->tick : 0;
+                    const u_int elapsed = (placed == 0) ? item.tick /* legacy tile: ready */ : ticks() - placed;
+
+                    if (item.tick > 0 && elapsed < static_cast<u_int>(item.tick))
+                    {
+                        throw std::runtime_error(std::format(
+                            "This {} needs more time to grow. ({}%)",
+                            item.raw_name,
+                            static_cast<int>(std::clamp(100.0 * elapsed / item.tick, 0.0, 99.0))));
+                    }
+
+                    switch (item.id)
+                    {
                             case 1008: // @note ATM
                             {
                                 u_char gems = RandomRange(1, 100); // @note source: https://growtopia.fandom.com/wiki/ATM_Machine
@@ -223,12 +237,16 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                                 break;
                             }
                         }
-                        //block.tick = ticks();
-                        send_tile_update(event, std::move(gamePacket), block, *world); // @note update countdown on provider.
+                    /* @note reset the provider's clock so it must grow again (retail
+                       harvest semantics). The tile update below re-sends the new
+                       growTime = 0 so the client drops its "ready" state. */
+                    if (it != world->providers.end()) it->tick = ticks();
+                    else world->providers.emplace_back(ticks(), gamePacket.punch);
 
-                        pPeer->add_xp(event, 1);
-                        return;
-                    //}
+                    send_tile_update(event, std::move(gamePacket), block, *world); // @note update countdown on provider.
+
+                    pPeer->add_xp(event, 1);
+                    return;
                     break;
                 }
                 case type::SEED:
@@ -756,7 +774,32 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 }
                 case type::DISPLAY_BLOCK:
                 {
-                    // @todo
+                    /* @note retail rules (growtopiawiki.com/w/Display_Block):
+                       - only the block's owner may add/remove (admins are refused)
+                       - a freshly placed block needs a 5s warm-up
+                       - locks, Screen Doors and untradeable items cannot be displayed */
+                    auto it = std::ranges::find(world->displays, gamePacket.punch, &::display::pos);
+                    const int shown = (it != world->displays.end()) ? static_cast<int>(it->id) : 0;
+
+                    ::create_dialog dialog = ::create_dialog()
+                        .set_default_color("`o")
+                        .add_label_with_icon("big", std::format("`w{}``", item.raw_name), item.id)
+                        .add_spacer("small")
+                        .embed_data("tilex", gamePacket.punch.x)
+                        .embed_data("tiley", gamePacket.punch.y);
+
+                    if (world->owner != 0 && world->owner != pPeer->user_id)
+                        dialog.add_textbox("Only the block's owner can place items in it.");
+                    else if (shown > 0)
+                    {
+                        const ::item &displayed = id_to_item(shown);
+                        dialog.add_label_with_icon("small", std::format("`w{}``", displayed.raw_name), shown)
+                              .add_button("removedisplay", "Remove item");
+                    }
+                    else
+                        dialog.add_item_picker("displayitem", "`wDisplay an item``", "Choose an item to display!");
+
+                    send_varlist(event.peer, { "OnDialogRequest", dialog.end_dialog("display_block", "Close", "") });
                     break;
                 }
                 case type::VENDING_MACHINE:
@@ -911,7 +954,8 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 }
                 case type::PROVIDER:
                 {
-                    //block.tick = ticks();
+                    world->providers.emplace_back(ticks(), gamePacket.punch); // @note start the harvest clock
+                    tile_update = true; // @note send the u32 growTime right away (0 = just placed)
                     break;
                 }
             }

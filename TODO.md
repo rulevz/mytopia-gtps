@@ -42,8 +42,32 @@ client before the items parser is upgraded (see P2).
 ## P1 - Gameplay content
 - [~] `@todo` sweep: duct-tape 10min expiry (main-loop watchdog), object stacking cap 200 +
       overflow stacks, access list written to map data, tile refresh on block destruction,
-      rare-item purchase text. Remaining (needs RE/wikidata): display-block dialog,
-      provider countdown, map header bytes 0x19/0x40
+      rare-item purchase text. Remaining (needs RE/wikidata): provider countdown UI
+- [x] Tile-extra wire formats audited against the 5.57 binary (`TileExtra::Serialize`
+      jump table @0x8010f8 -> `docs/CLIENT-RE-TILEEXTRAS.md`). FIXED A REAL CORRUPTION BUG:
+      provider (0x09), display block (0x17), vending (0x18) and random (0x08) emitted their
+      type byte with NO payload, so the client read the next tile's bytes as the extra and
+      every following tile in the stream shifted. Any world holding one of those blocks was
+      silently corrupt on join. All four now write their real payloads in BOTH
+      `world::serialize()` and `send_tile_update()`, and the DB blob round-trips them.
+      Regression: `tests/world_stream_check.py` (exact-EOF parse; also `--selftest`)
+- [x] Provider harvest countdown: `items.dat` `tick` is the harvest period in seconds and
+      matches growtopiawiki.com 1:1 (ATM 79200=22h, Science Station 43200=12h, Sheep
+      259200=3d, Unicorn 604800=7d). Gate was commented out - now enforced with a
+      "needs more time to grow (N%)" refusal, the clock persists per tile in
+      `world.providers`, resets on harvest, and the reset growTime is pushed to the client.
+      Sim: `tests/sim_provider_display.js` (STEP=1 place/refuse/display, STEP=2 harvest
+      after restart + re-arm)
+- [x] Display Block: wrench dialog (`display_block`) with owner-only item picker, remove
+      button, retail refusals (no locks / no Screen Doors) - wiki-sourced, plus the i32
+      displayed-item extra so the block actually shows its item
+- [x] World-data header: real retail values `worldVersion 0x19` + `flags 0x40` (the stock
+      `@todo my rgt world says` comments were correct)
+- [x] Client variant inventory: 232 `On*` names recovered from the binary vs 35 we send
+      (`docs/CLIENT-VARIANTS.md`, regenerable with `tools/gt-re/variant_map.py`). Note
+      OnSpawn/OnSetPos/OnSetBux/OnRemove/OnKilled are built from inline immediates and never
+      appear in `strings` - absence there is not evidence of non-support
+
 - [x] Worlds: save/load + autosave; world lock flows complete (place claims ownership,
       wrench LockEdit dialog, public/private, access list 20 slots, entry gate) - verified
       end-to-end via tests/sim_lock_flow.js (owner claim / blocked entry / access grant /

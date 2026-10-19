@@ -96,8 +96,8 @@ void block::reset()
 ::blob world::serialize()
 {
     blob blob;
-    blob.i16(0x00); // @todo my rgt world says: 19 00
-    blob.i32(0x00); // @todo my rgt world says: 40 00 00 00
+    blob.i16(0x19); // @note worldVersion 25 = what 5.57-era retail writes (GTopia: DEFAULT_WORLD_VERSION_FOR_DB 27 for its own DB format)
+    blob.i32(0x40); // @note flags word ("visited / non-empty"); informational for the client, matches retail captures
     blob.i16(this->name.length());
     for (char c : this->name) blob.u8(c);
 
@@ -107,7 +107,10 @@ void block::reset()
     blob.i32(y);
     blob.i16(this->blocks.size());
 
-    /*@todo*/
+    /* @note 5.40+ world-data prefix. KEEP the 7-byte form (u32 + u16 + u8): worlds
+       render correctly on 5.57 with it, so the client consumes exactly 7 bytes here.
+       GTopia writes u32 + u8 (5 bytes) for its own client build - do not "fix" this
+       without a real-client check, it would shift every following tile. */
     blob.i32(0x00);
     blob.i16(0x00);
     blob.u8(0x00);
@@ -172,6 +175,34 @@ void block::reset()
                 {
                     blob.push_back(tree->to_blob(true));
                 }
+            }
+            else if (type == '\x08'/*random*/)
+            {
+                // @note extra 0x08 @0x15b8754 reads exactly one u8 (randValue)
+                auto it = std::ranges::find(this->random_blocks, block_pos, &::random_block::pos);
+                blob.u8(it != this->random_blocks.end() ? it->value : 0);
+            }
+            else if (type == '\x09'/*provider*/)
+            {
+                /* @note the client ALWAYS reads a u32 here (extra 0x09 @0x15b828c reads
+                   tile+0x5c as u32). Omitting it shifted every following tile in the
+                   stream. Value = elapsed seconds since placement. */
+                auto it = std::ranges::find(this->providers, block_pos, &::provider::pos);
+                blob.i32(it != this->providers.end() ? static_cast<int>(ticks() - it->tick) : 0);
+            }
+            else if (type == '\x17'/*display block*/)
+            {
+                // @note extra 0x17 @0x15b7d14 reads exactly one i32: the displayed item id
+                auto it = std::ranges::find(this->displays, block_pos, &::display::pos);
+                blob.i32(it != this->displays.end() ? static_cast<int>(it->id) : 0);
+            }
+            else if (type == '\x18'/*vending machine*/)
+            {
+                // @note extra 0x18 @0x15b7b80: i32 itemID, i32 price, u32 stock, u32 worldLockCount
+                blob.i32(0x00);
+                blob.i32(0x00);
+                blob.i32(0x00);
+                blob.i32(0x00);
             }
         }
         ++i;
@@ -332,6 +363,32 @@ void world::mysql_select_all()
 
                     blob.read_u32(tree.tick, pos);
                     blob.read_u8(tree.fruit, pos);
+                }
+                else if (type == '\x08'/*random*/)
+                {
+                    ::random_block &random = this->random_blocks.emplace_back(0, block_pos);
+
+                    blob.read_u8(random.value, pos);
+                }
+                else if (type == '\x09'/*provider*/)
+                {
+                    ::provider &provider = this->providers.emplace_back(0, block_pos);
+
+                    blob.read_u32(provider.tick, pos);
+                }
+                else if (type == '\x17'/*display block*/)
+                {
+                    ::display &display = this->displays.emplace_back(0, block_pos);
+
+                    blob.read_u32(display.id, pos);
+                }
+                else if (type == '\x18'/*vending machine*/)
+                {
+                    u_int itemID{}, price{}, stock{}, world_locks{}; // @note not modelled yet, keep the stream aligned
+                    blob.read_u32(itemID, pos);
+                    blob.read_u32(price, pos);
+                    blob.read_u32(stock, pos);
+                    blob.read_u32(world_locks, pos);
                 }
             }
             ++i;
@@ -707,6 +764,36 @@ void send_tile_update(ENetEvent &event, ::gamePacket gamePacket, ::block &block,
             {
                 blob.push_back(tree->to_blob(true));
             }
+            break;
+        }
+        case type::PROVIDER:
+        {
+            // @note u32 growTime (elapsed secs) - same field the world-data stream carries
+            auto it = std::ranges::find(world.providers, gamePacket.punch, &::provider::pos);
+            blob.i32(it != world.providers.end() ? static_cast<int>(ticks() - it->tick) : 0);
+            break;
+        }
+        case type::RANDOM:
+        {
+            // @note u8 randValue (extra 0x08)
+            auto it = std::ranges::find(world.random_blocks, gamePacket.punch, &::random_block::pos);
+            blob.u8(it != world.random_blocks.end() ? it->value : 0);
+            break;
+        }
+        case type::DISPLAY_BLOCK:
+        {
+            // @note i32 displayed item id (0 = empty)
+            auto it = std::ranges::find(world.displays, gamePacket.punch, &::display::pos);
+            blob.i32(it != world.displays.end() ? static_cast<int>(it->id) : 0);
+            break;
+        }
+        case type::VENDING_MACHINE:
+        {
+            // @note i32 itemID, i32 price, u32 stock, u32 worldLockCount (not modelled yet)
+            blob.i32(0x00);
+            blob.i32(0x00);
+            blob.i32(0x00);
+            blob.i32(0x00);
             break;
         }
     }

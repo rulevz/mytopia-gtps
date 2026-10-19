@@ -150,6 +150,20 @@ struct display
     ::pos pos{};
 };
 
+/* @note provider blocks (ATM, chicken, cow, ...) carry a single u32 on the wire:
+   seconds elapsed since the tile was placed. The client compares it against the
+   item's `tick` from items.dat to decide "harvest ready".
+   @source client jump table 0x15b828c (extra 0x09) reads a u32 at tile+0x5c;
+           GTopia TileExtra_Provider::otherData is also u32. */
+struct provider
+{
+    provider(u_int _tick, ::pos _pos) : 
+        tick(_tick), pos(_pos) {}
+
+    u_int tick{}; // @note ticks() when the provider was placed / last harvested
+    ::pos pos{};
+};
+
 struct random_block
 {
     random_block(u_char _value, ::pos _pos) : 
@@ -209,6 +223,7 @@ public:
     std::vector<::door> doors{};
     std::vector<::tile_lock> locks{}; // @note placed range locks (small/big/huge/builder's)
     std::vector<::display> displays{};
+    std::vector<::provider> providers{}; // @note provider blocks + their placement tick
     std::vector<::random_block> random_blocks{};
     std::vector<::sign> signs{};
     std::vector<::tree> trees{};
